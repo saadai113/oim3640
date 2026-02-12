@@ -1,8 +1,9 @@
 import turtle
-t=turtle.turtle()
+from turtle import forward
+t=turtle.Turtle()
 t.speed(0)
 t.forward(100)
-t.left
+t.left(90)
 def draw_square(turtle_obj, size=100):
     """Draw a square with the gien size"""
     for _ in range(4):
@@ -23,3 +24,7 @@ def main():
     draw_spiral(t)
     turtle.mainloop()
 
+
+draw_square()
+draw_spiral(t)
+main()
