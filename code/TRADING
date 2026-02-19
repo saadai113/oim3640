@@ -1,0 +1,322 @@
+# ============================================================
+# SALES & TRADING: PYTHON EXAMPLES BY DOMAIN
+# Educational implementations — not production-ready.
+# Each section is self-contained. Run individually.
+# ============================================================
+
+
+# ============================================================
+# DOMAIN 1: QUANTITATIVE / SYSTEMATIC TRADING
+# Simple moving average crossover backtest
+# WARNING: This will look more profitable than it is in reality.
+# No transaction costs, slippage, or survivorship bias included.
+# ============================================================
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+def backtest_sma_crossover(prices: pd.Series, short_window=20, long_window=50):
+    """
+    Buy when short MA crosses above long MA. Sell when it crosses below.
+    Returns a DataFrame with signals and cumulative returns.
+    """
+    df = pd.DataFrame({'price': prices})
+    df['sma_short'] = df['price'].rolling(short_window).mean()
+    df['sma_long']  = df['price'].rolling(long_window).mean()
+
+    # Signal: 1 = long, 0 = flat
+    df['signal'] = 0
+    df.loc[df['sma_short'] > df['sma_long'], 'signal'] = 1
+
+    # Daily returns
+    df['market_return']   = df['price'].pct_change()
+    df['strategy_return'] = df['signal'].shift(1) * df['market_return']  # shift(1) avoids look-ahead bias
+
+    df['cumulative_market']   = (1 + df['market_return']).cumprod()
+    df['cumulative_strategy'] = (1 + df['strategy_return']).cumprod()
+
+    # Basic stats
+    n_trades = df['signal'].diff().abs().sum()
+    sharpe = (df['strategy_return'].mean() / df['strategy_return'].std()) * np.sqrt(252)
+    total_return = df['cumulative_strategy'].iloc[-1] - 1
+
+    print(f"[SMA Crossover Backtest]")
+    print(f"  Total return (strategy): {total_return:.2%}")
+    print(f"  Annualized Sharpe:       {sharpe:.2f}")
+    print(f"  Number of signal flips:  {int(n_trades)}")
+    print(f"  NOTE: No transaction costs applied. Real returns will be lower.\n")
+
+    return df
+
+# --- Demo with synthetic price data ---
+np.random.seed(42)
+price_series = pd.Series(100 * np.cumprod(1 + np.random.normal(0.0003, 0.01, 500)))
+backtest_sma_crossover(price_series)
+
+
+# ============================================================
+# DOMAIN 2: RISK MANAGEMENT — Value at Risk (VaR)
+# Historical simulation and parametric VaR
+# VaR tells you the loss not exceeded at a confidence level.
+# It says NOTHING about how bad losses are beyond that threshold.
+# ============================================================
+
+def compute_var(returns: pd.Series, confidence=0.95):
+    """
+    Historical VaR and Parametric (Gaussian) VaR at given confidence level.
+    
+    Limitation: Both assume history repeats and returns are IID.
+    Historical VaR breaks in regime changes. Parametric VaR underestimates tail risk.
+    """
+    returns = returns.dropna()
+
+    # Historical VaR
+    hist_var = -np.percentile(returns, (1 - confidence) * 100)
+
+    # Parametric VaR (assumes normality — often wrong in practice)
+    from scipy.stats import norm
+    mu, sigma = returns.mean(), returns.std()
+    param_var = -(mu + norm.ppf(1 - confidence) * sigma)
+
+    # CVaR / Expected Shortfall — average loss beyond VaR
+    cvar = -returns[returns <= -hist_var].mean()
+
+    print(f"[Value at Risk — {confidence:.0%} confidence]")
+    print(f"  Historical VaR:  {hist_var:.4f}  ({hist_var*100:.2f}% of position)")
+    print(f"  Parametric VaR:  {param_var:.4f}  ({param_var*100:.2f}% of position)")
+    print(f"  CVaR (ES):       {cvar:.4f}  (avg loss in worst {(1-confidence)*100:.0f}% of days)")
+    print(f"  NOTE: Parametric VaR understates tail risk for fat-tailed assets.\n")
+
+    return hist_var, param_var, cvar
+
+# --- Demo ---
+daily_returns = pd.Series(np.random.normal(0.0005, 0.015, 1000))
+compute_var(daily_returns, confidence=0.95)
+compute_var(daily_returns, confidence=0.99)
+
+
+# ============================================================
+# DOMAIN 3: DERIVATIVES PRICING — Black-Scholes + Greeks
+# BSM assumes constant vol, no jumps, frictionless markets.
+# These assumptions break in practice. Use as a baseline only.
+# ============================================================
+
+from scipy.stats import norm as _norm
+import math
+
+def black_scholes(S, K, T, r, sigma, option_type='call'):
+    """
+    Black-Scholes-Merton option pricing.
+    
+    S     : Current stock price
+    K     : Strike price
+    T     : Time to expiry in years
+    r     : Risk-free rate (annual)
+    sigma : Implied volatility (annual)
+    
+    Returns: (price, delta, gamma, vega, theta)
+    """
+    if T <= 0:
+        # Intrinsic value at expiry
+        intrinsic = max(S - K, 0) if option_type == 'call' else max(K - S, 0)
+        return intrinsic, None, None, None, None
+
+    d1 = (math.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * math.sqrt(T))
+    d2 = d1 - sigma * math.sqrt(T)
+
+    if option_type == 'call':
+        price = S * _norm.cdf(d1) - K * math.exp(-r * T) * _norm.cdf(d2)
+        delta = _norm.cdf(d1)
+    else:
+        price = K * math.exp(-r * T) * _norm.cdf(-d2) - S * _norm.cdf(-d1)
+        delta = _norm.cdf(d1) - 1
+
+    gamma = _norm.pdf(d1) / (S * sigma * math.sqrt(T))
+    vega  = S * _norm.pdf(d1) * math.sqrt(T) / 100          # per 1% vol move
+    theta = (-(S * _norm.pdf(d1) * sigma) / (2 * math.sqrt(T))
+             - r * K * math.exp(-r * T) * _norm.cdf(d2)) / 365  # per day
+
+    return price, delta, gamma, vega, theta
+
+# --- Demo ---
+S, K, T, r, sigma = 100, 105, 0.5, 0.05, 0.20
+price, delta, gamma, vega, theta = black_scholes(S, K, T, r, sigma, 'call')
+
+print(f"[Black-Scholes Call Option]")
+print(f"  S={S}, K={K}, T={T}y, r={r:.0%}, σ={sigma:.0%}")
+print(f"  Price:  ${price:.4f}")
+print(f"  Delta:  {delta:.4f}  ($ change per $1 move in S)")
+print(f"  Gamma:  {gamma:.4f}  (Delta change per $1 move in S)")
+print(f"  Vega:   {vega:.4f}   ($ change per 1% vol move)")
+print(f"  Theta:  {theta:.4f}  ($ decay per day)")
+print(f"  NOTE: Vol smile/skew means real-world pricing deviates from BSM.\n")
+
+
+# ============================================================
+# DOMAIN 4: MARKET MICROSTRUCTURE — Order Book Simulation
+# Real order books operate in microseconds with co-located servers.
+# This is a conceptual model, not a latency-sensitive implementation.
+# ============================================================
+
+from collections import defaultdict
+import heapq
+
+class OrderBook:
+    """
+    Simplified limit order book (LOB).
+    Bids: max-heap (negate prices). Asks: min-heap.
+    """
+
+    def __init__(self):
+        self.bids = []  # max-heap: store as negative prices
+        self.asks = []  # min-heap
+        self.bid_sizes = defaultdict(float)
+        self.ask_sizes = defaultdict(float)
+
+    def add_limit_order(self, side: str, price: float, size: float):
+        if side == 'bid':
+            heapq.heappush(self.bids, -price)
+            self.bid_sizes[price] += size
+        elif side == 'ask':
+            heapq.heappush(self.asks, price)
+            self.ask_sizes[price] += size
+
+    def best_bid(self):
+        while self.bids and self.bid_sizes[-self.bids[0]] <= 0:
+            heapq.heappop(self.bids)
+        return -self.bids[0] if self.bids else None
+
+    def best_ask(self):
+        while self.asks and self.ask_sizes[self.asks[0]] <= 0:
+            heapq.heappop(self.asks)
+        return self.asks[0] if self.asks else None
+
+    def mid_price(self):
+        bb, ba = self.best_bid(), self.best_ask()
+        if bb and ba:
+            return (bb + ba) / 2
+        return None
+
+    def bid_ask_spread(self):
+        bb, ba = self.best_bid(), self.best_ask()
+        if bb and ba:
+            return ba - bb
+        return None
+
+    def market_order(self, side: str, size: float):
+        """Execute a market order, consuming liquidity from the book."""
+        filled, cost = 0, 0
+        if side == 'buy':
+            while size > 0 and self.asks:
+                best = self.best_ask()
+                if best is None:
+                    break
+                available = self.ask_sizes[best]
+                fill = min(size, available)
+                cost += fill * best
+                self.ask_sizes[best] -= fill
+                filled += fill
+                size -= fill
+        elif side == 'sell':
+            while size > 0 and self.bids:
+                best = self.best_bid()
+                if best is None:
+                    break
+                available = self.bid_sizes[best]
+                fill = min(size, available)
+                cost += fill * best
+                self.bid_sizes[best] -= fill
+                filled += fill
+                size -= fill
+        avg_price = cost / filled if filled > 0 else None
+        return filled, avg_price
+
+# --- Demo ---
+book = OrderBook()
+for price, size in [(99.5, 100), (99.0, 200), (98.5, 150)]:
+    book.add_limit_order('bid', price, size)
+for price, size in [(100.5, 100), (101.0, 200), (101.5, 150)]:
+    book.add_limit_order('ask', price, size)
+
+print(f"[Order Book State]")
+print(f"  Best Bid:  {book.best_bid()}")
+print(f"  Best Ask:  {book.best_ask()}")
+print(f"  Mid Price: {book.mid_price()}")
+print(f"  Spread:    {book.bid_ask_spread()}")
+
+filled, avg = book.market_order('buy', 250)
+print(f"\n  Market Buy 250 shares → Filled: {filled}, Avg Price: {avg:.4f}")
+print(f"  Best Ask after fill: {book.best_ask()}")
+print(f"  NOTE: Real books handle order IDs, cancels, and partial fills at nanosecond speed.\n")
+
+
+# ============================================================
+# DOMAIN 5: FIXED INCOME / RATES — Yield Curve & Duration
+# Bond math is deceptively simple here but breaks with embedded
+# options, callable bonds, or floating-rate instruments.
+# ============================================================
+
+def bond_price(face: float, coupon_rate: float, ytm: float, periods: int, freq=2):
+    """
+    Price a fixed-rate bond given yield to maturity.
+    
+    face        : Face/par value
+    coupon_rate : Annual coupon rate
+    ytm         : Annual yield to maturity
+    periods     : Total coupon periods remaining
+    freq        : Coupon payments per year (2 = semi-annual)
+    """
+    coupon = face * coupon_rate / freq
+    ytm_per = ytm / freq
+    
+    # PV of coupons + PV of face
+    pv_coupons = coupon * (1 - (1 + ytm_per)**(-periods)) / ytm_per
+    pv_face = face / (1 + ytm_per)**periods
+    return pv_coupons + pv_face
+
+def modified_duration(face, coupon_rate, ytm, periods, freq=2):
+    """
+    Modified Duration: % price change per 1% change in yield.
+    Approximation breaks down for large yield moves (convexity effect).
+    """
+    dy = 0.0001  # 1 basis point
+    p_up   = bond_price(face, coupon_rate, ytm + dy, periods, freq)
+    p_down = bond_price(face, coupon_rate, ytm - dy, periods, freq)
+    p      = bond_price(face, coupon_rate, ytm,      periods, freq)
+    
+    mod_dur = -(p_up - p_down) / (2 * dy * p)
+    return mod_dur
+
+def build_yield_curve(maturities, yields):
+    """
+    Simple linear interpolation of a yield curve.
+    Real curves use cubic splines or Nelson-Siegel parametrization.
+    """
+    from numpy import interp
+    interp_maturities = np.linspace(min(maturities), max(maturities), 100)
+    interp_yields = interp(interp_maturities, maturities, yields)
+    return interp_maturities, interp_yields
+
+# --- Demo ---
+face, coupon_rate, ytm, periods = 1000, 0.05, 0.04, 20  # 10-year semi-annual bond
+
+price = bond_price(face, coupon_rate, ytm, periods)
+dur   = modified_duration(face, coupon_rate, ytm, periods)
+
+print(f"[Fixed Income — Bond Pricing]")
+print(f"  Face: ${face}, Coupon: {coupon_rate:.0%}, YTM: {ytm:.0%}, Periods: {periods}")
+print(f"  Price:             ${price:.2f}  (premium: coupon > yield)")
+print(f"  Modified Duration: {dur:.4f} years")
+print(f"  Interpretation:    ~{dur:.2f}% price change per 1% yield move")
+print(f"  NOTE: Duration is a linear approximation. For large moves, add convexity.\n")
+
+# Yield curve construction
+maturities = [0.25, 0.5, 1, 2, 5, 10, 20, 30]
+yields     = [0.050, 0.049, 0.048, 0.046, 0.043, 0.042, 0.044, 0.046]  # typical normal curve
+mat_interp, yld_interp = build_yield_curve(maturities, yields)
+
+print(f"[Yield Curve — Sample Points]")
+for m, y in zip(maturities, yields):
+    print(f"  {m:5.2f}y  →  {y:.3%}")
+print(f"  (Full curve interpolated across 100 points for pricing)")
