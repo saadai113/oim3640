@@ -6,3 +6,5 @@ This is my course repository for OIM3640.
 - Name: Saad Abdullah   
 - Concentration: Business Analytics + Finance
 - Interests: Padel
+
+Link to Project: C:\Users\sabdullah2\Documents\GitHub\oim3640\projects\miniproject_1\proposal.md
