@@ -1,0 +1,92 @@
+[
+    {
+        "question": "What is the output of type({}) in Python?",
+        "options": ["<class 'set'>", "<class 'dict'>", "<class 'object'>", "<class 'list'>"],
+        "answer": 1,
+        "explanation": "{} creates an empty dict, not a set. Use set() to create an empty set."
+    },
+    {
+        "question": "Which method removes and returns the last item from a list?",
+        "options": ["list.remove()", "list.delete()", "list.pop()", "list.discard()"],
+        "answer": 2,
+        "explanation": "list.pop() removes and returns the last element by default. Pass an index to remove a specific position."
+    },
+    {
+        "question": "What does the 'pass' statement do in Python?",
+        "options": [
+            "Exits the current loop",
+            "Skips to the next iteration",
+            "Does nothing — acts as a placeholder",
+            "Returns None from a function"
+        ],
+        "answer": 2,
+        "explanation": "'pass' is a null statement used where syntax requires a statement but no action is needed."
+    },
+    {
+        "question": "What is the result of 3 ** 3 in Python?",
+        "options": ["6", "9", "27", "33"],
+        "answer": 2,
+        "explanation": "** is the exponentiation operator. 3 ** 3 = 3 raised to the power of 3 = 27."
+    },
+    {
+        "question": "What does enumerate() return when iterating?",
+        "options": [
+            "A list of values",
+            "An iterator of (index, value) pairs",
+            "A dictionary of index-to-value mappings",
+            "A sorted version of the iterable"
+        ],
+        "answer": 1,
+        "explanation": "enumerate() wraps an iterable and yields (index, value) tuples, useful for looping with a counter."
+    },
+    {
+        "question": "Which is the correct syntax for a lambda function?",
+        "options": [
+            "lambda x => x + 1",
+            "lambda(x): x + 1",
+            "lambda x: x + 1",
+            "def lambda(x): return x + 1"
+        ],
+        "answer": 2,
+        "explanation": "Lambda syntax is: lambda parameters: expression. No parentheses, def, or return keyword needed."
+    },
+    {
+        "question": "What is the difference between '==' and 'is' in Python?",
+        "options": [
+            "They are identical in behavior",
+            "'==' compares values; 'is' compares identity (same object in memory)",
+            "'is' compares values; '==' compares identity",
+            "'is' only works with integers"
+        ],
+        "answer": 1,
+        "explanation": "'==' checks if two objects have equal values. 'is' checks if they are the exact same object in memory."
+    },
+    {
+        "question": "What will list(range(2, 10, 3)) produce?",
+        "options": ["[2, 5, 8]", "[2, 4, 6, 8]", "[2, 3, 4, 5, 6, 7, 8, 9]", "[3, 6, 9]"],
+        "answer": 0,
+        "explanation": "range(2, 10, 3) starts at 2, steps by 3, and stops before 10: 2, 5, 8."
+    },
+    {
+        "question": "How do you catch multiple exception types in a single except clause?",
+        "options": [
+            "except ValueError, TypeError:",
+            "except (ValueError, TypeError):",
+            "except [ValueError, TypeError]:",
+            "except ValueError or TypeError:"
+        ],
+        "answer": 1,
+        "explanation": "Multiple exception types are grouped in a tuple: except (ValueError, TypeError):"
+    },
+    {
+        "question": "What does the zip() function do?",
+        "options": [
+            "Compresses files in Python",
+            "Sorts two lists simultaneously",
+            "Pairs elements from multiple iterables into tuples",
+            "Merges two dictionaries"
+        ],
+        "answer": 2,
+        "explanation": "zip() takes multiple iterables and returns an iterator of tuples pairing their elements by position."
+    }
+]

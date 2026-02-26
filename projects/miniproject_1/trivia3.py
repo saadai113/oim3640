@@ -24,6 +24,7 @@ import json
 import random
 import os
 import time
+import threading
 
 # ── Terminal colors (gracefully degrade if unsupported) ──────────────────────
 
@@ -287,45 +288,19 @@ def run_game(questions):
     print(f"\n  Play again? {Y}[y/n]{RESET} ", end='')
     return input().strip().lower() == 'y'
 
-# ── Question pool builder ─────────────────────────────────────────────────────
-
-JSON_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "questions.json")
-JSON_WEIGHT = 0.8   # fraction of questions drawn from JSON when both sources exist
-
-
-def build_pool():
-    """Return (questions, source_label).
-
-    Priority:
-      1. Explicit CLI path  → use that file only.
-      2. questions.json exists next to script → blend: ~80 % JSON, ~20 % built-in.
-      3. Fallback → built-in sample only.
-    """
-    if len(sys.argv) > 1:
-        return load_questions(sys.argv[1]), sys.argv[1]
-
-    if os.path.exists(JSON_FILE):
-        json_qs = load_questions(JSON_FILE)
-        # Determine split: pull JSON_WEIGHT fraction from JSON, rest from sample
-        # Use all JSON questions + a minority of sample questions
-        n_sample = max(0, round(len(json_qs) * (1 - JSON_WEIGHT) / JSON_WEIGHT))
-        sample_pick = random.sample(SAMPLE_QUESTIONS, min(n_sample, len(SAMPLE_QUESTIONS)))
-        pool = json_qs + sample_pick
-        src  = f"{os.path.basename(JSON_FILE)} ({len(json_qs)} JSON + {len(sample_pick)} built-in)"
-        return pool, src
-
-    return SAMPLE_QUESTIONS, "built-in sample"
-
-
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():
-    questions, src = build_pool()
+    if len(sys.argv) > 1:
+        questions = load_questions(sys.argv[1])
+    else:
+        questions = SAMPLE_QUESTIONS
 
     clear()
     divider('═')
     print(f"{BOLD}{Y}  PYTHON QUIZ GAME{RESET}")
     divider('═')
+    src = sys.argv[1] if len(sys.argv) > 1 else "built-in sample"
     print(f"\n  Source:     {C}{src}{RESET}")
     print(f"  Questions:  {len(questions)}")
     print(f"  Order:      randomized each round")

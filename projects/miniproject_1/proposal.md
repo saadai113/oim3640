@@ -8,5 +8,9 @@
  - 10 questions are shown everytime
  - The app decide between the built-in questions or the JSON file in lines 293-297
  - The rule: if the user passes a command-line argument, it's treated as a file path and loaded as JSON. No argument = built-in questions.
+ - Change: App will get 10 questions from questions.json file + 2 questions from in-built sample
+ - Idea: App gets questions fromm scraping off net
+ - 
 
-x`
+
+## Implementation details
