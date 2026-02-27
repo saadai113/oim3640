@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-quiz_game.py — CLI trivia game with score tracking, feedback, and JSON file loading.
+quiz_game.py — CLI trivia game with score tracking and feedback.
 
 Usage:
-    python quiz_game.py               # uses built-in sample questions
-    python quiz_game.py questions.json  # loads from a JSON file
+    python quiz_game.py
+
+Questions are loaded from questions.json in the same directory as this script.
 
 JSON format:
     [
@@ -24,7 +25,6 @@ import json
 import random
 import os
 import time
-import threading
 
 # ── Terminal colors (gracefully degrade if unsupported) ──────────────────────
 
@@ -46,85 +46,7 @@ else:
 
 KEYS = "ABCDEFGHIJ"
 
-# ── Built-in sample questions ─────────────────────────────────────────────────
-
-SAMPLE_QUESTIONS = [
-    {
-        "question": "What keyword turns a Python function into a generator?",
-        "options": ["return", "yield", "generate", "async"],
-        "answer": 1,
-        "explanation": "'yield' pauses the function and returns a value; the function resumes on next()."
-    },
-    {
-        "question": "Which built-in function returns the memory address of a Python object?",
-        "options": ["ref()", "addr()", "id()", "mem()"],
-        "answer": 2,
-        "explanation": "id() returns the identity (memory address) of an object in CPython."
-    },
-    {
-        "question": "What does *args capture in a function definition?",
-        "options": [
-            "Keyword arguments as a dict",
-            "Positional arguments as a tuple",
-            "All arguments as a list",
-            "Only integer arguments"
-        ],
-        "answer": 1,
-        "explanation": "*args collects extra positional arguments into a tuple. **kwargs handles keyword arguments."
-    },
-    {
-        "question": "Which data structure guarantees O(1) average-case lookup?",
-        "options": ["list", "tuple", "dict", "deque"],
-        "answer": 2,
-        "explanation": "dict (hash map) uses hashing for O(1) average lookup. Lists require O(n) linear search."
-    },
-    {
-        "question": "What is the output of: bool(0), bool(''), bool([0])?",
-        "options": [
-            "False, False, False",
-            "False, False, True",
-            "True, False, True",
-            "False, True, False"
-        ],
-        "answer": 1,
-        "explanation": "0 and '' are falsy. [0] is a non-empty list — truthy even if its element is 0."
-    },
-    {
-        "question": "What does list comprehension [x**2 for x in range(5) if x % 2 == 0] produce?",
-        "options": ["[0, 4, 16]", "[1, 9, 25]", "[0, 2, 4]", "[0, 1, 4, 9, 16]"],
-        "answer": 0,
-        "explanation": "Filters even x (0, 2, 4) then squares them: [0, 4, 16]."
-    },
-    {
-        "question": "Which module provides high-precision decimal arithmetic in Python?",
-        "options": ["math", "fractions", "decimal", "numbers"],
-        "answer": 2,
-        "explanation": "The 'decimal' module provides arbitrary-precision fixed-point and floating-point arithmetic."
-    },
-    {
-        "question": "What is the time complexity of Python's list.append()?",
-        "options": ["O(n)", "O(log n)", "O(1) amortized", "O(n²)"],
-        "answer": 2,
-        "explanation": "append() is O(1) amortized. Occasional resizes are O(n) but averaged out over many appends."
-    },
-    {
-        "question": "What does the 'with' statement ensure when opening a file?",
-        "options": [
-            "The file is read-only",
-            "The file is closed automatically via __exit__",
-            "The file is loaded into memory",
-            "The file is locked for concurrent access"
-        ],
-        "answer": 1,
-        "explanation": "'with' uses the context manager protocol (__enter__/__exit__), ensuring cleanup even on exceptions."
-    },
-    {
-        "question": "Which of these is an immutable sequence type in Python?",
-        "options": ["list", "bytearray", "tuple", "dict"],
-        "answer": 2,
-        "explanation": "Tuples are immutable — you cannot modify them after creation. Lists and bytearrays are mutable."
-    },
-]
+QUESTIONS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "questions.json")
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -273,7 +195,7 @@ def show_results(history, questions):
 # ── Main game loop ────────────────────────────────────────────────────────────
 
 def run_game(questions):
-    qs = random.sample(questions, len(questions))  # shuffle
+    qs = random.sample(questions, 10)  # pick 10 random questions from the pool
     score = 0
     history = []
 
@@ -291,18 +213,14 @@ def run_game(questions):
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():
-    if len(sys.argv) > 1:
-        questions = load_questions(sys.argv[1])
-    else:
-        questions = SAMPLE_QUESTIONS
+    questions = load_questions(QUESTIONS_FILE)
 
     clear()
     divider('═')
     print(f"{BOLD}{Y}  PYTHON QUIZ GAME{RESET}")
     divider('═')
-    src = sys.argv[1] if len(sys.argv) > 1 else "built-in sample"
-    print(f"\n  Source:     {C}{src}{RESET}")
-    print(f"  Questions:  {len(questions)}")
+    print(f"\n  Source:     {C}questions.json{RESET}")
+    print(f"  Questions:  {len(questions)}; 10 randomly selected")
     print(f"  Order:      randomized each round")
     print(f"\n  {DIM}No hints. No retries per question.{RESET}\n")
     divider()
