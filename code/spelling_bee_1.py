@@ -1,13 +1,12 @@
-fin = open('../data/words.txt')
+import os
+
+words_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../data/words.txt')
+fin = open(words_path)
 word_list = fin.read().split()
 word_set = set(word_list)  # O(1) lookup instead of O(n)
 
-def is_valid(word_set):
-    if len(word_set) > 1 and list(word_set)[0] != list(word_set)[1]:
-        return True
-    return False
-
-        
+def is_valid(word):
+    return word in word_set
 
 
 def spelling_bee(word, available, required):
@@ -34,5 +33,16 @@ def spelling_bee(word, available, required):
              return False
     return True
 
+def find_pangrams(available, required):
+    results = []
+    for word in word_list:
+        if spelling_bee(word, available, required):
+            if all(letter in word.lower() for letter in available.lower()):
+                results.append(word)
+    return results
+
 print(spelling_bee('roar', 'aofrtpl', 'r'))        # True
 print(spelling_bee('available', 'aofrtpl', 'r'))   # False
+print(find_pangrams('aofrtpl', 'r'))               # List of pangram words
+print(spelling_bee('flattop', 'aofrtpl', 'r'))     # True
+print(find_pangrams('flattop', 't'))               # List of pangram words
