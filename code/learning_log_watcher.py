@@ -465,11 +465,14 @@ class PyFileHandler(FileSystemEventHandler):
 
     def _process(self, filepath: str):
         print(f"  [DETECTED] {Path(filepath).name}")
-        entry = generate_log_entry(filepath)
-        if entry:
-            append_to_log(self.log_path, filepath, entry)
-        else:
-            print(f"  [SKIPPED] Empty file.")
+        try:
+            entry = generate_log_entry(filepath)
+            if entry:
+                append_to_log(self.log_path, filepath, entry)
+            else:
+                print("  [SKIPPED] Empty file.")
+        except Exception as e:
+            print(f"  [ERROR] Failed to process {Path(filepath).name}: {e}")
 
     def on_modified(self, event):
         if not event.is_directory:

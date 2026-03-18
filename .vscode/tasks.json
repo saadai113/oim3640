@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Learning Log Watcher",
+      "type": "shell",
+      "command": "python",
+      "args": ["code/learning_log_watcher.py", "code/"],
+      "isBackground": true,
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "label": "Learning Log"
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

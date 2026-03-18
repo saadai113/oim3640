@@ -5,10 +5,12 @@ Demonstrates symmetric and asymmetric encryption with real-world considerations
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.backends import default_backend
+from argon2.low_level import hash_secret_raw, Type
 import os
+import stat
+import pathlib
 import base64
 
 
@@ -31,34 +33,33 @@ class AESEncryption:
     @staticmethod
     def derive_key_from_password(password: str, salt: bytes = None):
         """
-        Derive encryption key from password using PBKDF2
-        
+        Derive encryption key from password using Argon2id
+
         Limitations:
         - Weak passwords still produce weak security
-        - 100k iterations is minimum, not ideal (consider Argon2 instead)
         - Salt must be stored alongside encrypted data
         """
         if salt is None:
             salt = os.urandom(16)
-        
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
+
+        key = hash_secret_raw(
+            secret=password.encode(),
             salt=salt,
-            iterations=100000,
-            backend=default_backend()
+            time_cost=2,
+            memory_cost=65536,  # 64 MB
+            parallelism=2,
+            hash_len=32,
+            type=Type.ID
         )
-        key = kdf.derive(password.encode())
         return key, salt
     
     @staticmethod
-    def encrypt(plaintext: bytes, key: bytes):
+    def encrypt(plaintext: bytes, key: bytes) -> bytes:
         """
         Encrypt data using AES-256-GCM
-        
-        Returns: (ciphertext, nonce, tag)
-        
-        Critical: You MUST store nonce and tag to decrypt
+
+        Returns a single blob: nonce (12 bytes) + tag (16 bytes) + ciphertext
+        Critical: Use decrypt() to unpack — do not split manually
         """
         nonce = os.urandom(12)  # 96-bit nonce for GCM
         cipher = Cipher(
@@ -68,28 +69,28 @@ class AESEncryption:
         )
         encryptor = cipher.encryptor()
         ciphertext = encryptor.update(plaintext) + encryptor.finalize()
-        
-        return ciphertext, nonce, encryptor.tag
-    
+
+        return nonce + encryptor.tag + ciphertext
+
     @staticmethod
-    def decrypt(ciphertext: bytes, key: bytes, nonce: bytes, tag: bytes):
+    def decrypt(data: bytes, key: bytes) -> bytes:
         """
         Decrypt AES-256-GCM data
-        
+
+        Expects blob produced by encrypt(): nonce + tag + ciphertext
+
         Failure modes:
         - Wrong key: raises InvalidTag exception
         - Tampered data: raises InvalidTag exception
-        - Wrong nonce: produces garbage output
         """
+        nonce, tag, ciphertext = data[:12], data[12:28], data[28:]
         cipher = Cipher(
             algorithms.AES(key),
             modes.GCM(nonce, tag),
             backend=default_backend()
         )
         decryptor = cipher.decryptor()
-        plaintext = decryptor.update(ciphertext) + decryptor.finalize()
-        
-        return plaintext
+        return decryptor.update(ciphertext) + decryptor.finalize()
 
 
 class RSAEncryption:
@@ -154,23 +155,24 @@ class RSAEncryption:
     @staticmethod
     def save_private_key(private_key, filename, password=None):
         """
-        Save private key to file
-        
+        Save private key to file with owner-only permissions (600)
+
         Warning: Unencrypted keys on disk are a liability
         Even with password, file permissions matter
         """
         encryption_algorithm = serialization.BestAvailableEncryption(
             password.encode()
         ) if password else serialization.NoEncryption()
-        
+
         pem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=encryption_algorithm
         )
-        
-        with open(filename, 'wb') as f:
-            f.write(pem)
+
+        path = pathlib.Path(filename)
+        path.write_bytes(pem)
+        path.chmod(stat.S_IRUSR | stat.S_IWUSR)  # owner read/write only
     
     @staticmethod
     def load_private_key(filename, password=None):
@@ -197,37 +199,25 @@ class HybridEncryption:
     """
     
     @staticmethod
-    def encrypt(plaintext: bytes, public_key):
+    def encrypt(plaintext: bytes, public_key) -> tuple[bytes, bytes]:
         """
         Encrypt large data using hybrid approach:
         1. Generate random AES key
-        2. Encrypt data with AES
+        2. Encrypt data with AES (returns single blob)
         3. Encrypt AES key with RSA
-        
-        Returns: (encrypted_aes_key, ciphertext, nonce, tag)
+
+        Returns: (encrypted_aes_key, aes_blob)
         """
-        # Generate random AES key for this message
         aes_key = AESEncryption.generate_key()
-        
-        # Encrypt the actual data with AES
-        ciphertext, nonce, tag = AESEncryption.encrypt(plaintext, aes_key)
-        
-        # Encrypt the AES key with RSA
+        aes_blob = AESEncryption.encrypt(plaintext, aes_key)
         encrypted_aes_key = RSAEncryption.encrypt(aes_key, public_key)
-        
-        return encrypted_aes_key, ciphertext, nonce, tag
-    
+        return encrypted_aes_key, aes_blob
+
     @staticmethod
-    def decrypt(encrypted_aes_key: bytes, ciphertext: bytes, 
-                nonce: bytes, tag: bytes, private_key):
+    def decrypt(encrypted_aes_key: bytes, aes_blob: bytes, private_key) -> bytes:
         """Decrypt hybrid-encrypted data"""
-        # Decrypt the AES key using RSA
         aes_key = RSAEncryption.decrypt(encrypted_aes_key, private_key)
-        
-        # Decrypt the data using AES
-        plaintext = AESEncryption.decrypt(ciphertext, aes_key, nonce, tag)
-        
-        return plaintext
+        return AESEncryption.decrypt(aes_blob, aes_key)
 
 
 def demonstration():
@@ -245,63 +235,58 @@ def demonstration():
     print("=== AES Symmetric Encryption ===")
     key = AESEncryption.generate_key()
     plaintext = b"Secret message that needs encrypting"
-    
-    ciphertext, nonce, tag = AESEncryption.encrypt(plaintext, key)
-    print(f"Encrypted: {base64.b64encode(ciphertext).decode()}")
-    
-    decrypted = AESEncryption.decrypt(ciphertext, key, nonce, tag)
+
+    aes_blob = AESEncryption.encrypt(plaintext, key)
+    print(f"Encrypted: {base64.b64encode(aes_blob).decode()}")
+
+    decrypted = AESEncryption.decrypt(aes_blob, key)
     print(f"Decrypted: {decrypted.decode()}")
     print(f"Match: {plaintext == decrypted}\n")
-    
-    print("=== Password-based Encryption ===")
+
+    print("=== Password-based Encryption (Argon2id) ===")
     password = "weak_password_123"  # In reality, most users choose worse
     derived_key, salt = AESEncryption.derive_key_from_password(password)
-    
-    ciphertext, nonce, tag = AESEncryption.encrypt(plaintext, derived_key)
-    
+
+    aes_blob = AESEncryption.encrypt(plaintext, derived_key)
+
     # To decrypt, you need the same password and salt
     same_key, _ = AESEncryption.derive_key_from_password(password, salt)
-    decrypted = AESEncryption.decrypt(ciphertext, same_key, nonce, tag)
+    decrypted = AESEncryption.decrypt(aes_blob, same_key)
     print(f"Decrypted: {decrypted.decode()}\n")
-    
+
     print("=== RSA Asymmetric Encryption ===")
     private_key, public_key = RSAEncryption.generate_keypair()
-    
+
     # Small message (RSA limitation)
     small_msg = b"Small secret"
     encrypted = RSAEncryption.encrypt(small_msg, public_key)
     decrypted = RSAEncryption.decrypt(encrypted, private_key)
     print(f"Decrypted: {decrypted.decode()}\n")
-    
+
     print("=== Hybrid Encryption (Recommended for large data) ===")
     large_plaintext = b"A" * 10000  # 10KB of data
-    
-    enc_key, ciphertext, nonce, tag = HybridEncryption.encrypt(
-        large_plaintext, public_key
-    )
-    
-    decrypted = HybridEncryption.decrypt(
-        enc_key, ciphertext, nonce, tag, private_key
-    )
+
+    enc_key, aes_blob = HybridEncryption.encrypt(large_plaintext, public_key)
+    decrypted = HybridEncryption.decrypt(enc_key, aes_blob, private_key)
     print(f"Successfully encrypted and decrypted {len(large_plaintext)} bytes")
     print(f"Match: {large_plaintext == decrypted}")
-    
+
     print("\n=== Common Failure Scenarios ===")
-    
+
     # Wrong key
     try:
         wrong_key = AESEncryption.generate_key()
-        AESEncryption.decrypt(ciphertext, wrong_key, nonce, tag)
+        AESEncryption.decrypt(aes_blob, wrong_key)
     except Exception as e:
         print(f"Wrong key error: {type(e).__name__}")
-    
+
     # Tampered data
     try:
-        tampered = ciphertext[:-1] + b'X'
-        AESEncryption.decrypt(tampered, key, nonce, tag)
+        tampered = aes_blob[:-1] + b'X'
+        AESEncryption.decrypt(tampered, key)
     except Exception as e:
         print(f"Tampered data error: {type(e).__name__}")
-    
+
     # Data too large for RSA
     try:
         huge_data = b"A" * 500

@@ -3,6 +3,7 @@ PO Matching System — 2-way and 3-way matching
 Flags discrepancies for human review, auto-approves within tolerance.
 """
 
+import csv
 from dataclasses import dataclass, field
 from typing import Optional
 from enum import Enum
@@ -170,7 +171,7 @@ def match_po(
     # --- Determine status ---
     if not flags:
         status = MatchStatus.APPROVED
-    elif any("not found" in f or "mismatch" in f.lower() and "vendor" in f.lower() for f in flags):
+    elif any(("not found" in f) or ("mismatch" in f.lower() and "vendor" in f.lower()) for f in flags):
         status = MatchStatus.REJECTED
     else:
         status = MatchStatus.FLAGGED
@@ -183,6 +184,41 @@ def match_po(
         receipt_total=receipt.total if receipt else None,
         match_type=match_type,
     )
+
+
+# ---------------------------------------------------------------------------
+# CSV loader — test with real data
+# ---------------------------------------------------------------------------
+# CSV format (all three files use the same columns):
+#   description,quantity,unit_price
+# Example po.csv:
+#   Laptop,20,800.00
+#   Mouse,50,25.00
+
+def load_items_from_csv(filepath: str) -> list[LineItem]:
+    items = []
+    with open(filepath, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            items.append(LineItem(
+                description=row["description"],
+                quantity=float(row["quantity"]),
+                unit_price=float(row["unit_price"]),
+            ))
+    return items
+
+
+def match_from_csvs(
+    po_number: str, vendor: str,
+    po_csv: str, invoice_csv: str, receipt_csv: str = None,
+    price_tolerance: float = 0.02, qty_tolerance: float = 0.0,
+) -> MatchResult:
+    po = PurchaseOrder(po_number, vendor, load_items_from_csv(po_csv))
+    inv_number = f"INV-{po_number}"
+    inv = Invoice(inv_number, po_number, vendor, load_items_from_csv(invoice_csv))
+    receipt = None
+    if receipt_csv:
+        receipt = GoodsReceipt(f"GR-{po_number}", po_number, load_items_from_csv(receipt_csv))
+    return match_po(po, inv, receipt, price_tolerance, qty_tolerance)
 
 
 # ---------------------------------------------------------------------------
