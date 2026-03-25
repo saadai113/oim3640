@@ -25,6 +25,45 @@ from collections import Counter
 
 
 # =============================================================================
+# ANSI COLOR HELPERS
+# =============================================================================
+
+class C:
+    RESET  = "\033[0m"
+    BOLD   = "\033[1m"
+    DIM    = "\033[2m"
+    CYAN   = "\033[96m"
+    GREEN  = "\033[92m"
+    RED    = "\033[91m"
+    YELLOW = "\033[93m"
+    BLUE   = "\033[94m"
+    WHITE  = "\033[97m"
+
+
+def _ansi(code: str, text: str) -> str:
+    return f"{code}{text}{C.RESET}"
+
+def bold(t):    return _ansi(C.BOLD,   t)
+def cyan(t):    return _ansi(C.CYAN,   t)
+def green(t):   return _ansi(C.GREEN,  t)
+def red(t):     return _ansi(C.RED,    t)
+def yellow(t):  return _ansi(C.YELLOW, t)
+def blue(t):    return _ansi(C.BLUE,   t)
+def dim(t):     return _ansi(C.DIM,    t)
+def white(t):   return _ansi(C.WHITE,  t)
+
+
+def strip_ansi(s: str) -> str:
+    """Return string with all ANSI escape codes removed."""
+    return re.sub(r'\033\[[0-9;]*m', '', s)
+
+
+def cpad(s: str, width: int) -> str:
+    """Left-pad a possibly-colored string to visible width."""
+    return s + " " * max(0, width - len(strip_ansi(s)))
+
+
+# =============================================================================
 # DEAL TEXT CORPUS
 # Each quote is tagged with its source URL.
 # =============================================================================
@@ -275,25 +314,30 @@ def build_word_frequencies(quotes: list) -> dict:
 
 
 def word_freq_stats(deal_name: str, quotes: list) -> None:
-    """Print word frequency stats: total words, unique words, top-10."""
+    """Print word frequency stats: total words, unique words, top-10 with bar chart."""
     freq = build_word_frequencies(quotes)
 
     all_text = " ".join(q["text"] for q in quotes)
     total_words = len(all_text.split())
     unique_words = len(freq)
 
-    # Sort by frequency descending, then alphabetically for ties
     top10 = sorted(freq.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
+    max_count = top10[0][1] if top10 else 1
 
-    print(f"  [{deal_name}]")
-    print(f"    Total words (raw):  {total_words}")
-    print(f"    Unique words (filtered): {unique_words}")
+    print("  " + bold(cyan(deal_name)) + dim("  |  ") +
+          "Total words: " + yellow(str(total_words)) +
+          dim("  |  ") + "Unique (filtered): " + yellow(str(unique_words)))
     print()
-    print(f"    {'Rank':<6} {'Word':<25} {'Count':>6}   {'Bar'}")
-    print(f"    {'-'*6} {'-'*25} {'-'*6}   {'-'*20}")
+
+    headers = ["Rank", "Word", "Count", "% of Total", "Frequency Bar (normalized)"]
+    col_widths = [4, 22, 5, 10, 32]
+    rows = []
     for rank, (word, count) in enumerate(top10, 1):
-        bar = "#" * count
-        print(f"    {rank:<6} {word:<25} {count:>6}   {bar}")
+        pct = (count / total_words) * 100
+        bar = draw_bar(count, max_count, bar_width=30)
+        rows.append((str(rank), word, str(count), f"{pct:.1f}%", bar))
+
+    draw_table(headers, rows, col_widths)
     print()
 
 
@@ -321,206 +365,322 @@ def identify_missing_disclosures(deal_name: str, has_ebitda: bool, has_margin: b
 
 
 # =============================================================================
-# MAIN ANALYSIS
+# PRINTING HELPERS
 # =============================================================================
 
-def print_sep(char="=", w=90):
-    print(char * w)
+WIDTH = 90  # overall output width
+
+
+def print_sep(char="=", w=WIDTH):
+    print(dim(char * w))
 
 
 def print_hdr(title):
+    """Cyan boxed section header."""
     print()
-    print_sep()
-    print(f"  {title}")
-    print_sep()
+    print(cyan("+" + "-" * (WIDTH - 2) + "+"))
+    print(cyan("|") + bold(cyan(f"  {title}".ljust(WIDTH - 2))) + cyan("|"))
+    print(cyan("+" + "=" * (WIDTH - 2) + "+"))
     print()
 
 
-def run_analysis():
+def draw_table(headers: list, rows: list, col_widths: list = None):
+    """
+    Print a color-aware bordered ASCII table.
+
+    headers   : list of column header strings (may contain ANSI codes)
+    rows      : list of row tuples (each element is a string, may contain ANSI codes)
+    col_widths: optional list of visible widths; auto-sized from stripped text if omitted
+    """
+    if col_widths is None:
+        all_rows = [headers] + list(rows)
+        col_widths = [
+            max(len(strip_ansi(str(r[i]))) for r in all_rows)
+            for i in range(len(headers))
+        ]
+
+    border_line = dim("+" + "+".join("-" * (w + 2) for w in col_widths) + "+")
+    header_sep  = dim("+" + "+".join("=" * (w + 2) for w in col_widths) + "+")
+
+    def data_row(cells, color_fn=None):
+        parts = []
+        for cell, w in zip(cells, col_widths):
+            s = str(cell)
+            if color_fn:
+                s = color_fn(strip_ansi(s))
+            parts.append(" " + cpad(s, w) + " ")
+        return dim("|") + dim("|").join(parts) + dim("|")
+
+    print(border_line)
+    print(data_row(headers, color_fn=lambda t: bold(white(t))))
+    print(header_sep)
+    for i, row in enumerate(rows):
+        print(data_row(row))
+        if i < len(rows) - 1:
+            print(border_line)
+    print(border_line)
     print()
-    print_sep()
-    print("  FINANCIAL DEAL WORDING ANALYZER")
-    print("  Comparing disclosure quality and language patterns")
-    print("  VMG / Downtown Music  vs.  Playlist + EGYM")
-    print_sep()
 
-    # --- Run pattern detection ---
-    dt_analysis = analyze_wording("VMG / Downtown", DOWNTOWN_QUOTES)
-    pe_analysis = analyze_wording("Playlist / EGYM", PLAYLIST_EGYM_QUOTES)
 
-    # --- Missing disclosures ---
-    dt_analysis.missing_disclosures = identify_missing_disclosures(
-        "VMG / Downtown",
-        has_ebitda=True,   # ~$40M from Billboard (anonymous, unverified)
-        has_margin=True,    # Derivable: 30.8% on net rev
-        has_synergy_targets=False,
-        has_integration_costs=False,
-        has_accretion=False,
-        has_timeline=False,
-        has_net_income=False,
-    )
+def draw_bar(value: int, max_value: int, bar_width: int = 30) -> str:
+    """Return a normalized, colored ASCII bar scaled to bar_width."""
+    if max_value == 0:
+        return ""
+    filled = round((value / max_value) * bar_width)
+    bar = green("#" * filled) + dim("." * (bar_width - filled))
+    return dim("[") + bar + dim("]")
 
-    pe_analysis.missing_disclosures = identify_missing_disclosures(
-        "Playlist / EGYM",
-        has_ebitda=False,
-        has_margin=False,
-        has_synergy_targets=False,
-        has_integration_costs=False,
-        has_accretion=False,
-        has_timeline=False,
-        has_net_income=False,
-    )
 
-    # =========================================================================
-    # SECTION 1: What the wording analysis framework does
-    # =========================================================================
+# =============================================================================
+# SECTION FUNCTIONS
+# =============================================================================
+
+def _signal_color(signal: str) -> str:
+    """Color a signal string based on its polarity keyword."""
+    if "POSITIVE" in signal:
+        return green(signal)
+    if "NEGATIVE" in signal:
+        return red(signal)
+    return yellow(signal)  # NEUTRAL
+
+
+def print_methodology():
+    """Section 1: Explain what each language pattern signals about deal quality."""
     print_hdr("METHODOLOGY: HOW FINANCIAL WORDING ANALYSIS WORKS")
-
     print("  Deal announcements are not neutral documents. They are crafted by")
     print("  investment bankers, lawyers, and PR teams to control narrative.")
     print("  The language encodes signals about deal quality:")
     print()
     for cat, info in PATTERNS.items():
-        print(f"  [{cat.upper()}]")
-        print(f"    What: {info['description']}")
-        print(f"    Signal: {info['signal']}")
-        print(f"    Examples: {', '.join(info['examples'][:2])}")
+        print("  " + bold(cyan(f"[{cat.upper()}]")))
+        print(f"    What:    {info['description']}")
+        print(f"    Signal:  {_signal_color(info['signal'])}")
+        print(f"    Examples: {dim(', '.join(info['examples'][:2]))}")
         print()
-
-    print("  The key insight: WHAT IS ABSENT tells you more than what is present.")
+    print("  " + bold("The key insight:") + " WHAT IS ABSENT tells you more than what is present.")
     print("  A deal that discloses revenue but not EBITDA is hiding profitability.")
     print("  A deal that cites 'strong profitability' without numbers has no")
     print("  profitability worth disclosing.")
     print()
 
-    # =========================================================================
-    # SECTION 2: Pattern counts
-    # =========================================================================
+
+def _better(dt_val, pe_val, higher_is_better: bool = True) -> str:
+    """Return a colored verdict string indicating which deal wins the metric."""
+    if dt_val == pe_val:
+        return dim("tie")
+    if higher_is_better:
+        return green("DT <--") if dt_val > pe_val else blue("--> PE")
+    else:
+        return green("DT <--") if dt_val < pe_val else blue("--> PE")
+
+
+def print_pattern_counts(dt_analysis: WordingAnalysis, pe_analysis: WordingAnalysis):
+    """Section 2: Bordered table of raw pattern counts, ratios, and per-metric verdict."""
     print_hdr("PATTERN DETECTION RESULTS")
 
-    row = "  {:<35s} {:>20s} {:>20s}"
-    print(row.format("Metric", "VMG / Downtown", "Playlist / EGYM"))
-    print(row.format("-" * 35, "-" * 20, "-" * 20))
-    print(row.format("Total words analyzed", str(dt_analysis.total_word_count), str(pe_analysis.total_word_count)))
-    print(row.format("Hard numbers ($ amounts, %)", str(dt_analysis.hard_number_count), str(pe_analysis.hard_number_count)))
-    print(row.format("Soft qualifiers (more than, about)", str(dt_analysis.soft_number_count), str(pe_analysis.soft_number_count)))
-    print(row.format("Hedge words (believe, expect, may)", str(dt_analysis.hedge_word_count), str(pe_analysis.hedge_word_count)))
-    print(row.format("Aspirational phrases", str(dt_analysis.aspirational_count), str(pe_analysis.aspirational_count)))
-    print(row.format("Buzzwords", str(dt_analysis.buzzword_count), str(pe_analysis.buzzword_count)))
-    print()
-    print(row.format("Quantification ratio (per 100w)", f"{dt_analysis.quantification_ratio:.2f}", f"{pe_analysis.quantification_ratio:.2f}"))
-    print(row.format("Hedge ratio (per 100w)", f"{dt_analysis.hedge_ratio:.2f}", f"{pe_analysis.hedge_ratio:.2f}"))
-    print(row.format("Buzzword ratio (per 100w)", f"{dt_analysis.buzzword_ratio:.2f}", f"{pe_analysis.buzzword_ratio:.2f}"))
-    print(row.format("SUBSTANCE SCORE (higher = better)", f"{dt_analysis.substance_score:.2f}", f"{pe_analysis.substance_score:.2f}"))
-    print()
+    headers = ["Metric", "VMG / Downtown", "Playlist / EGYM", "Better"]
+    col_widths = [34, 14, 14, 8]
 
-    # =========================================================================
-    # SECTION 2b: Word frequency analysis
-    # =========================================================================
+    rows = [
+        ("Total words analyzed",
+         str(dt_analysis.total_word_count),
+         str(pe_analysis.total_word_count), "--"),
+        ("Hard numbers ($ or %)",
+         str(dt_analysis.hard_number_count),
+         str(pe_analysis.hard_number_count),
+         _better(dt_analysis.hard_number_count, pe_analysis.hard_number_count)),
+        ("Soft qualifiers (more than, about)",
+         str(dt_analysis.soft_number_count),
+         str(pe_analysis.soft_number_count),
+         _better(dt_analysis.soft_number_count, pe_analysis.soft_number_count)),
+        ("Hedge words (believe, may, expect)",
+         str(dt_analysis.hedge_word_count),
+         str(pe_analysis.hedge_word_count),
+         _better(dt_analysis.hedge_word_count, pe_analysis.hedge_word_count, higher_is_better=False)),
+        ("Aspirational phrases",
+         str(dt_analysis.aspirational_count),
+         str(pe_analysis.aspirational_count),
+         _better(dt_analysis.aspirational_count, pe_analysis.aspirational_count, higher_is_better=False)),
+        ("Buzzwords",
+         str(dt_analysis.buzzword_count),
+         str(pe_analysis.buzzword_count),
+         _better(dt_analysis.buzzword_count, pe_analysis.buzzword_count, higher_is_better=False)),
+        ("--- ratios (per 100 words) ---", "", "", ""),
+        ("Quantification ratio",
+         f"{dt_analysis.quantification_ratio:.2f}",
+         f"{pe_analysis.quantification_ratio:.2f}",
+         _better(dt_analysis.quantification_ratio, pe_analysis.quantification_ratio)),
+        ("Hedge ratio",
+         f"{dt_analysis.hedge_ratio:.2f}",
+         f"{pe_analysis.hedge_ratio:.2f}",
+         _better(dt_analysis.hedge_ratio, pe_analysis.hedge_ratio, higher_is_better=False)),
+        ("Buzzword ratio",
+         f"{dt_analysis.buzzword_ratio:.2f}",
+         f"{pe_analysis.buzzword_ratio:.2f}",
+         _better(dt_analysis.buzzword_ratio, pe_analysis.buzzword_ratio, higher_is_better=False)),
+        ("SUBSTANCE SCORE (higher = better)",
+         f"{dt_analysis.substance_score:.2f}",
+         f"{pe_analysis.substance_score:.2f}",
+         _better(dt_analysis.substance_score, pe_analysis.substance_score)),
+    ]
+
+    draw_table(headers, rows, col_widths)
+
+
+def print_word_frequencies():
+    """Section 3: Top-10 most common words and basic stats for each deal's quotes."""
     print_hdr("WORD FREQUENCY ANALYSIS — TOP 10 MOST COMMON WORDS")
-
     print("  Stop words and punctuation removed. Words reflect deal vocabulary.")
     print()
     word_freq_stats("VMG / Downtown", DOWNTOWN_QUOTES)
     word_freq_stats("Playlist / EGYM", PLAYLIST_EGYM_QUOTES)
 
-    # =========================================================================
-    # SECTION 3: Detected patterns detail
-    # =========================================================================
+
+def print_detected_pattern_detail(dt_analysis: WordingAnalysis, pe_analysis: WordingAnalysis):
+    """Section 4: Tabular breakdown of every matched token per deal."""
     print_hdr("DETECTED PATTERNS — DETAIL")
 
     for a, label in [(dt_analysis, "VMG / Downtown"), (pe_analysis, "Playlist / EGYM")]:
-        print(f"  [{label}]")
-        if a.hard_numbers_found:
-            print(f"    Hard numbers found: {', '.join(set(str(x) for x in a.hard_numbers_found))}")
-        else:
-            print(f"    Hard numbers found: NONE")
-        if a.hedge_words_found:
-            counts = Counter(w.lower() for w in a.hedge_words_found)
-            print(f"    Hedge words: {dict(counts)}")
-        else:
-            print(f"    Hedge words: NONE")
-        if a.aspirational_found:
-            print(f"    Aspirational: {', '.join(set(a.aspirational_found))}")
-        if a.buzzwords_found:
-            counts = Counter(w.lower() for w in a.buzzwords_found)
-            print(f"    Buzzwords: {dict(counts)}")
+        print("  " + bold(cyan(label)))
         print()
 
-    # =========================================================================
-    # SECTION 4: Missing disclosures
-    # =========================================================================
-    print_hdr("MISSING DISCLOSURES (what SHOULD be there but isn't)")
+        hard = ", ".join(sorted(set(str(x) for x in a.hard_numbers_found))) or "NONE"
+        hedge_counts = Counter(w.lower() for w in a.hedge_words_found)
+        hedges = ", ".join(f"{w}({n})" for w, n in sorted(hedge_counts.items())) or "NONE"
+        asp = ", ".join(sorted(set(a.aspirational_found))) or "NONE"
+        buzz_counts = Counter(w.lower() for w in a.buzzwords_found)
+        buzzwords = ", ".join(f"{w}({n})" for w, n in sorted(buzz_counts.items())) or "NONE"
 
-    for a, label in [(dt_analysis, "VMG / Downtown"), (pe_analysis, "Playlist / EGYM")]:
-        print(f"  [{label}] — {len(a.missing_disclosures)} material gaps")
-        for i, m in enumerate(a.missing_disclosures, 1):
-            print(f"    {i}. {m}")
-        print()
+        headers = ["Category", "Tokens Found"]
+        col_widths = [22, 58]
+        rows = [
+            ("Hard numbers", hard),
+            ("Hedge words", hedges),
+            ("Aspirational", asp),
+            ("Buzzwords", buzzwords),
+        ]
+        draw_table(headers, rows, col_widths)
 
-    # =========================================================================
-    # SECTION 5: Specific wording red flags
-    # =========================================================================
+
+def print_missing_disclosures(dt_analysis: WordingAnalysis, pe_analysis: WordingAnalysis):
+    """Section 5: Side-by-side table of present vs. absent disclosures for each deal."""
+    print_hdr("MISSING DISCLOSURES  (present = [YES]  /  absent = [NO])")
+
+    disclosure_labels = [
+        ("EBITDA / profitability figures",  "has_ebitda"),
+        ("Margin data",                     "has_margin"),
+        ("Quantified synergy targets",      "has_synergy_targets"),
+        ("Integration cost estimates",      "has_integration_costs"),
+        ("EPS / accretion analysis",        "has_accretion"),
+        ("Synergy realization timeline",    "has_timeline"),
+        ("Net income",                      "has_net_income"),
+    ]
+
+    # Reconstruct presence from missing_disclosures text (absent = appears in list)
+    dt_missing_text = " ".join(dt_analysis.missing_disclosures).lower()
+    pe_missing_text = " ".join(pe_analysis.missing_disclosures).lower()
+
+    keyword_map = {
+        "has_ebitda":             "ebitda",
+        "has_margin":             "margin data",
+        "has_synergy_targets":    "synergy targets",
+        "has_integration_costs":  "integration cost",
+        "has_accretion":          "accretion",
+        "has_timeline":           "timeline",
+        "has_net_income":         "net income",
+    }
+
+    headers = ["Disclosure", "VMG / Downtown", "Playlist / EGYM"]
+    col_widths = [34, 14, 14]
+    rows = []
+    for label, key in disclosure_labels:
+        kw = keyword_map[key]
+        dt_val = red("[NO]  ") if kw in dt_missing_text else green("[YES]")
+        pe_val = red("[NO]  ") if kw in pe_missing_text else green("[YES]")
+        rows.append((label, dt_val, pe_val))
+
+    draw_table(headers, rows, col_widths)
+
+    dt_gaps = len(dt_analysis.missing_disclosures)
+    pe_gaps = len(pe_analysis.missing_disclosures)
+    print("  VMG / Downtown:  " + yellow(f"{dt_gaps} / 7") + " disclosures missing")
+    print("  Playlist / EGYM: " + red(f"{pe_gaps} / 7") + " disclosures missing")
+    print()
+
+
+def _flag(quote: str, issue: str):
+    """Print a single red-flag entry: yellow quote, red ISSUE label, plain explanation."""
+    print("  " + yellow(f'"{quote}"'))
+    lines = issue.split("\n")
+    print("     " + red("ISSUE:") + " " + lines[0])
+    for line in lines[1:]:
+        print("     " + line)
+    print()
+
+
+def print_wording_red_flags():
+    """Section 6: Specific quotes from each deal with explanation of why they are red flags."""
     print_hdr("SPECIFIC WORDING RED FLAGS")
 
-    print("  [VMG / Downtown]")
+    print("  " + bold(cyan("[VMG / Downtown]")))
     print()
-    print('  1. "significant milestone in the creation of a global, end-to-end solution"')
-    print("     ISSUE: 'Milestone' and 'end-to-end solution' are marketing language.")
-    print("     They describe nothing specific about value creation or financial impact.")
-    print()
-    print('  2. "preserving their distinct strengths while increasing investment"')
-    print("     ISSUE: Contradicts typical acquisition integration. If you're preserving")
-    print("     everything distinct, where do cost synergies come from? This signals")
-    print("     the deal is about revenue growth, not cost efficiency — but no revenue")
-    print("     targets are given.")
-    print()
-    print('  3. "thoughtfully and strategically"')
-    print("     ISSUE: Filler phrase. Every deal claims to be thoughtful and strategic.")
-    print("     Tells you nothing about the actual integration plan, timeline, or KPIs.")
-    print()
-    print('  4. The EBITDA figure ($40M) comes from Billboard, NOT from the companies.')
-    print("     ISSUE: The acquirer chose not to disclose any financial metrics about")
-    print("     the target. When the buyer won't tell you the economics, the economics")
-    print("     probably don't support the price.")
-    print()
+    _flag(
+        "significant milestone in the creation of a global, end-to-end solution",
+        "'Milestone' and 'end-to-end solution' are marketing language.\n"
+        "     They describe nothing specific about value creation or financial impact.",
+    )
+    _flag(
+        "preserving their distinct strengths while increasing investment",
+        "Contradicts typical acquisition integration. If you're preserving\n"
+        "     everything distinct, where do cost synergies come from? This signals\n"
+        "     the deal is about revenue growth, not cost efficiency — but no revenue\n"
+        "     targets are given.",
+    )
+    _flag(
+        "thoughtfully and strategically",
+        "Filler phrase. Every deal claims to be thoughtful and strategic.\n"
+        "     Tells you nothing about the actual integration plan, timeline, or KPIs.",
+    )
+    _flag(
+        "The EBITDA figure ($40M) comes from Billboard, NOT from the companies.",
+        "The acquirer chose not to disclose any financial metrics about\n"
+        "     the target. When the buyer won't tell you the economics, the economics\n"
+        "     probably don't support the price.",
+    )
 
-    print("  [Playlist / EGYM]")
+    print("  " + bold(cyan("[Playlist / EGYM]")))
     print()
-    print('  1. "more than $800 million in net revenue while maintaining high-growth')
-    print('     momentum and strong profitability"')
-    print("     ISSUE: This is the ENTIRE financial disclosure for a $7.5B deal.")
-    print("     'More than' is deliberately vague — could be $801M or $950M.")
-    print("     'Strong profitability' with no number is meaningless. If profitability")
-    print("     were impressive, they would quantify it. They didn't.")
-    print()
-    print('  2. "will unlock network effects across studios, employers, and consumers"')
-    print("     ISSUE: 'Unlock network effects' is a hypothesis, not a plan. Network")
-    print("     effects require specific conditions (user density thresholds, switching")
-    print("     costs, data advantages). None are specified. This is aspirational.")
-    print()
-    print('  3. "a global destination for wellbeing"')
-    print("     ISSUE: This is a tagline, not a strategy. It describes no specific")
-    print("     product, market, or financial outcome. It cannot be measured or")
-    print("     verified. It is pure positioning language.")
-    print()
-    print('  4. "increased investment in artificial intelligence"')
-    print("     ISSUE: AI is mentioned 4+ times in the announcement with zero")
-    print("     specifics about what it does, what it costs, or what return it")
-    print("     generates. In 2026, mentioning AI is the equivalent of mentioning")
-    print("     'the internet' in 1999 — it signals trend-following, not strategy.")
-    print()
-    print('  5. Seven years under Vista ownership with no exit.')
-    print("     ISSUE: Vista took Mindbody private in 2019. It is now 2026.")
-    print("     This merger is structured to bring in fresh equity and reset the")
-    print("     valuation rather than pursue a clean exit (IPO or sale). The")
-    print("     language frames this as 'growth investment' but the structure")
-    print("     suggests existing investors needed a liquidity / valuation event.")
-    print()
+    _flag(
+        "more than $800 million in net revenue ... and strong profitability",
+        "This is the ENTIRE financial disclosure for a $7.5B deal.\n"
+        "     'More than' is deliberately vague — could be $801M or $950M.\n"
+        "     'Strong profitability' with no number is meaningless.",
+    )
+    _flag(
+        "will unlock network effects across studios, employers, and consumers",
+        "'Unlock network effects' is a hypothesis, not a plan. Network\n"
+        "     effects require specific conditions. None are specified here.",
+    )
+    _flag(
+        "a global destination for wellbeing",
+        "This is a tagline, not a strategy. It describes no specific\n"
+        "     product, market, or financial outcome. It cannot be verified.",
+    )
+    _flag(
+        "increased investment in artificial intelligence",
+        "AI is mentioned 4+ times with zero specifics about what it does,\n"
+        "     what it costs, or what return it generates.",
+    )
+    _flag(
+        "Seven years under Vista ownership with no exit.",
+        "Vista took Mindbody private in 2019. It is now 2026.\n"
+        "     This merger brings in fresh equity to reset the valuation rather\n"
+        "     than pursue a clean exit — suggesting a liquidity event was needed.",
+    )
 
-    # =========================================================================
-    # SECTION 6: Comparative assessment
-    # =========================================================================
+
+def print_comparative_assessment():
+    """Section 7: Which deal has better disclosure and language quality, and what it implies."""
     print_hdr("COMPARATIVE ASSESSMENT")
 
     print("  DISCLOSURE QUALITY:")
@@ -559,9 +719,9 @@ def run_analysis():
     print("  under normal scrutiny.")
     print()
 
-    # =========================================================================
-    # SECTION 7: How to read deal language (general framework)
-    # =========================================================================
+
+def print_reading_framework():
+    """Section 8: General rules for reading any M&A deal announcement critically."""
     print_hdr("GENERAL FRAMEWORK: HOW TO READ DEAL LANGUAGE")
 
     print("  1. COUNT THE NUMBERS")
@@ -598,6 +758,96 @@ def run_analysis():
     print("     merger (like Playlist/EGYM) signal existing investors need a")
     print("     valuation reset. The consideration structure IS the signal.")
     print()
+
+
+# =============================================================================
+# DATA PREPARATION
+# =============================================================================
+
+def build_analyses() -> tuple:
+    """Run pattern detection and flag missing disclosures for both deals."""
+    dt_analysis = analyze_wording("VMG / Downtown", DOWNTOWN_QUOTES)
+    pe_analysis = analyze_wording("Playlist / EGYM", PLAYLIST_EGYM_QUOTES)
+
+    dt_analysis.missing_disclosures = identify_missing_disclosures(
+        "VMG / Downtown",
+        has_ebitda=True,            # ~$40M from Billboard (anonymous, unverified)
+        has_margin=True,            # Derivable: 30.8% on net rev
+        has_synergy_targets=False,
+        has_integration_costs=False,
+        has_accretion=False,
+        has_timeline=False,
+        has_net_income=False,
+    )
+
+    pe_analysis.missing_disclosures = identify_missing_disclosures(
+        "Playlist / EGYM",
+        has_ebitda=False,
+        has_margin=False,
+        has_synergy_targets=False,
+        has_integration_costs=False,
+        has_accretion=False,
+        has_timeline=False,
+        has_net_income=False,
+    )
+
+    return dt_analysis, pe_analysis
+
+
+# =============================================================================
+# MAIN ORCHESTRATOR
+# =============================================================================
+
+def print_scorecard(dt_analysis: WordingAnalysis, pe_analysis: WordingAnalysis):
+    """Visual summary scorecard shown at the top of the report."""
+    print_hdr("DISCLOSURE SCORECARD  (quick summary)")
+    headers = ["Metric", "VMG / Downtown", "Playlist / EGYM", "Winner"]
+    col_widths = [30, 14, 14, 14]
+    rows = [
+        ("Substance Score",
+         f"{dt_analysis.substance_score:.2f}",
+         f"{pe_analysis.substance_score:.2f}",
+         _better(dt_analysis.substance_score, pe_analysis.substance_score)),
+        ("Hard Numbers",
+         str(dt_analysis.hard_number_count),
+         str(pe_analysis.hard_number_count),
+         _better(dt_analysis.hard_number_count, pe_analysis.hard_number_count)),
+        ("Buzzwords (fewer = better)",
+         str(dt_analysis.buzzword_count),
+         str(pe_analysis.buzzword_count),
+         _better(dt_analysis.buzzword_count, pe_analysis.buzzword_count, higher_is_better=False)),
+        ("Hedge Words (fewer = better)",
+         str(dt_analysis.hedge_word_count),
+         str(pe_analysis.hedge_word_count),
+         _better(dt_analysis.hedge_word_count, pe_analysis.hedge_word_count, higher_is_better=False)),
+        ("Missing Disclosures (fewer = better)",
+         str(len(dt_analysis.missing_disclosures)),
+         str(len(pe_analysis.missing_disclosures)),
+         _better(len(dt_analysis.missing_disclosures), len(pe_analysis.missing_disclosures), higher_is_better=False)),
+    ]
+    draw_table(headers, rows, col_widths)
+
+
+def run_analysis():
+    """Run all analysis sections in order."""
+    print()
+    print_sep()
+    print("  " + bold(cyan("FINANCIAL DEAL WORDING ANALYZER")))
+    print("  " + white("Comparing disclosure quality and language patterns"))
+    print("  " + yellow("VMG / Downtown Music") + dim("  vs.  ") + blue("Playlist + EGYM"))
+    print_sep()
+
+    dt_analysis, pe_analysis = build_analyses()
+
+    print_scorecard(dt_analysis, pe_analysis)
+    print_methodology()
+    print_pattern_counts(dt_analysis, pe_analysis)
+    print_word_frequencies()
+    print_detected_pattern_detail(dt_analysis, pe_analysis)
+    print_missing_disclosures(dt_analysis, pe_analysis)
+    print_wording_red_flags()
+    print_comparative_assessment()
+    print_reading_framework()
 
     print_sep()
     print("  END OF WORDING ANALYSIS")
