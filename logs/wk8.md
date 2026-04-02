@@ -7,3 +7,8 @@
  - A live moment tracker with APIs 
  - Updated learning_log_watcher.md
  - Finally learning_log.md to work after 3 failed attempts
+
+## Learning Log.md fully done
+ - After about 8 iterations, it is finally done
+ - Now recording all changes made to any files/folders in this repo
+

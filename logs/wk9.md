@@ -5,6 +5,9 @@
  - Completed class reviews and learned what invalid token is
  - A lot of debugging
  - Forked a live tracker for polymarket
+ - Learnt the necessity of .gitignore and .env
+ - Got live data of Boston
+ - 
 
 ## Mini -Project 2
  - Learnt how to analyze financial deals by use of legal financial words, financial ratios and where to get useful data from
