@@ -11,7 +11,7 @@ multiple documents at multiple levels, each with different legal weight,
 audience, and enforceability.
 
 Deals analyzed:
-  1. VMG / Downtown Music Holdings ($775M) — private-to-private
+  1. VMG / Downtown Music Holdings ($775M) — public-to-private
   2. Playlist + EGYM Merger ($7.5B EV) — private-to-private
 
 Sources cited inline.

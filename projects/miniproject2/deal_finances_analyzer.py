@@ -17,6 +17,29 @@ import json
 from dataclasses import dataclass, field
 from typing import Optional
 
+try:
+    from colorama import init, Fore, Style
+    init(autoreset=True)
+    C = {
+        "header":   Style.BRIGHT + Fore.CYAN,
+        "sep":      Fore.BLUE,
+        "deal":     Style.BRIGHT + Fore.YELLOW,
+        "label":    Fore.WHITE,
+        "value":    Style.BRIGHT + Fore.WHITE,
+        "money":    Style.BRIGHT + Fore.GREEN,
+        "multiple": Style.BRIGHT + Fore.CYAN,
+        "warn":     Style.BRIGHT + Fore.RED,
+        "caution":  Fore.YELLOW,
+        "risk":     Fore.RED,
+        "na":       Style.DIM + Fore.WHITE,
+        "key_obs":  Style.BRIGHT + Fore.YELLOW,
+        "dim":      Style.DIM,
+        "reset":    Style.RESET_ALL,
+    }
+except ImportError:
+    C = {k: "" for k in ["header","sep","deal","label","value","money","multiple",
+                          "warn","caution","risk","na","key_obs","dim","reset"]}
+
 
 # =============================================================================
 # DATA SOURCES — every number is traceable to a URL
@@ -377,63 +400,68 @@ playlist_egym = Deal(
 # =============================================================================
 
 def print_separator(char="=", width=90):
-    print(char * width)
+    print(C["sep"] + char * width)
 
 
 def print_header(title):
     print()
     print_separator()
-    print(f"  {title}")
+    print(C["header"] + f"  {title}")
     print_separator()
     print()
 
 
 def fmt(value, decimals=1, suffix="x", na="N/A"):
     if value is None:
-        return na
-    return f"{value:.{decimals}f}{suffix}"
+        return C["na"] + na
+    return C["multiple"] + f"{value:.{decimals}f}{suffix}"
 
 
 def fmt_mm(value):
     if value is None:
-        return "N/A"
+        return C["na"] + "N/A"
     if abs(value) >= 1000:
-        return f"${value / 1000:.1f}B"
-    return f"${value:.0f}M"
+        return C["money"] + f"${value / 1000:.1f}B"
+    return C["money"] + f"${value:.0f}M"
+
+
+def lbl(text):
+    """Format a label (left-side key in key: value pairs)."""
+    return C["label"] + text
 
 
 def analyze_deal(deal: Deal):
     """Print a full analysis of a single deal."""
-    print(f"  Deal:          {deal.name}")
-    print(f"  Acquirer:      {deal.acquirer}")
-    print(f"  Target:        {deal.target}")
-    print(f"  Sector:        {deal.sector}")
-    print(f"  Announced:     {deal.announced}")
-    print(f"  Status:        {deal.closed}")
-    print(f"  Deal Value:    {fmt_mm(deal.deal_value_mm)}")
-    print(f"  Enterprise Val:{fmt_mm(deal.enterprise_value_mm)}")
-    print(f"  Consideration: {deal.consideration}")
+    print(f"  {lbl('Deal:')          :<30} {C['value']}{deal.name}")
+    print(f"  {lbl('Acquirer:')      :<30} {C['value']}{deal.acquirer}")
+    print(f"  {lbl('Target:')        :<30} {C['value']}{deal.target}")
+    print(f"  {lbl('Sector:')        :<30} {C['value']}{deal.sector}")
+    print(f"  {lbl('Announced:')     :<30} {C['value']}{deal.announced}")
+    print(f"  {lbl('Status:')        :<30} {C['value']}{deal.closed}")
+    print(f"  {lbl('Deal Value:')    :<30} {fmt_mm(deal.deal_value_mm)}")
+    print(f"  {lbl('Enterprise Val:'):<30} {fmt_mm(deal.enterprise_value_mm)}")
+    print(f"  {lbl('Consideration:') :<30} {C['value']}{deal.consideration}")
     print()
-    print(f"  Revenue:       {fmt_mm(deal.revenue_mm)} ({deal.revenue_label})")
+    print(f"  {lbl('Revenue:')       :<30} {fmt_mm(deal.revenue_mm)} {C['dim']}({deal.revenue_label})")
     if deal.alt_revenue_mm:
-        print(f"  Alt Revenue:   {fmt_mm(deal.alt_revenue_mm)} ({deal.alt_revenue_label})")
+        print(f"  {lbl('Alt Revenue:')  :<30} {fmt_mm(deal.alt_revenue_mm)} {C['dim']}({deal.alt_revenue_label})")
     print()
-    print(f"  Reported EBITDA:  {fmt_mm(deal.reported_ebitda_mm)}")
-    print(f"    Source: {deal.ebitda_source_note}")
-    print(f"    WARNING: {deal.ebitda_definition_warning}")
+    print(f"  {lbl('Reported EBITDA:'):<30} {fmt_mm(deal.reported_ebitda_mm)}")
+    print(f"    {C['dim']}Source: {deal.ebitda_source_note}")
+    print(f"    {C['warn']}WARNING: {deal.ebitda_definition_warning}")
     if deal.adjusted_ebitda_mm:
-        print(f"  Adjusted EBITDA:  {fmt_mm(deal.adjusted_ebitda_mm)} (SHOWN FOR DISCLOSURE ONLY)")
-        print(f"    Note: {deal.adjusted_ebitda_note}")
+        print(f"  {lbl('Adjusted EBITDA:'):<30} {fmt_mm(deal.adjusted_ebitda_mm)} {C['caution']}(SHOWN FOR DISCLOSURE ONLY)")
+        print(f"    {C['dim']}Note: {deal.adjusted_ebitda_note}")
     print()
 
     # Multiples
-    print("  --- Entry Multiples (using REPORTED EBITDA only) ---")
-    print(f"  EV / Revenue:          {fmt(deal.ev_revenue)}")
+    print(C["sep"] + "  --- Entry Multiples (using REPORTED EBITDA only) ---")
+    print(f"  {lbl('EV / Revenue:')         :<30} {fmt(deal.ev_revenue)}")
     if deal.ev_alt_revenue is not None:
-        print(f"  EV / Alt Revenue:      {fmt(deal.ev_alt_revenue)} (on {deal.alt_revenue_label})")
-    print(f"  EV / Reported EBITDA:  {fmt(deal.ev_reported_ebitda)}")
+        print(f"  {lbl('EV / Alt Revenue:')     :<30} {fmt(deal.ev_alt_revenue)} {C['dim']}(on {deal.alt_revenue_label})")
+    print(f"  {lbl('EV / Reported EBITDA:') :<30} {fmt(deal.ev_reported_ebitda)}")
     if deal.reported_ebitda_margin is not None:
-        print(f"  Reported EBITDA Margin: {fmt(deal.reported_ebitda_margin, 1, '%')}")
+        print(f"  {lbl('Reported EBITDA Margin:'):<30} {fmt(deal.reported_ebitda_margin, 1, '%')}")
     print()
 
 
@@ -447,10 +475,10 @@ def compare_deals(deal_a: Deal, deal_b: Deal):
 
     # --- Multiples Comparison ---
     print_header("ENTRY MULTIPLES COMPARISON (REPORTED EBITDA ONLY)")
-    row_fmt = "  {:<30s} {:>20s} {:>20s}"
-    print(row_fmt.format("Metric", deal_a.name.split("/")[0].strip(),
+    row_fmt = "  {:<30s} {:>30s} {:>30s}"
+    print(C["header"] + row_fmt.format("Metric", deal_a.name.split("/")[0].strip(),
                          deal_b.name.split("/")[0].strip()))
-    print(row_fmt.format("-" * 30, "-" * 20, "-" * 20))
+    print(C["sep"] + row_fmt.format("-" * 30, "-" * 30, "-" * 30))
     print(row_fmt.format("Enterprise Value",
                          fmt_mm(deal_a.enterprise_value_mm),
                          fmt_mm(deal_b.enterprise_value_mm)))
@@ -468,47 +496,47 @@ def compare_deals(deal_a: Deal, deal_b: Deal):
                          fmt(deal_b.ev_reported_ebitda)))
     print(row_fmt.format("EBITDA Margin (reported)",
                          fmt(deal_a.reported_ebitda_margin, 1, "%"),
-                         fmt(deal_b.reported_ebitda_margin, 1, "%") if deal_b.reported_ebitda_margin else "N/A"))
+                         fmt(deal_b.reported_ebitda_margin, 1, "%") if deal_b.reported_ebitda_margin else C["na"] + "N/A"))
     print()
 
     # --- Key difference callout ---
-    print("  KEY OBSERVATION:")
+    print(C["key_obs"] + "  KEY OBSERVATION:")
     if deal_a.ev_reported_ebitda and deal_b.ev_reported_ebitda:
         diff = deal_a.ev_reported_ebitda - deal_b.ev_reported_ebitda
         pct = (diff / deal_b.ev_reported_ebitda) * 100
         higher = deal_a.name if diff > 0 else deal_b.name
-        print(f"  {higher} trades at a {abs(pct):.0f}% {'premium' if diff > 0 else 'discount'} "
+        print(C["key_obs"] + f"  {higher} trades at a {abs(pct):.0f}% {'premium' if diff > 0 else 'discount'} "
               f"on EV/Reported EBITDA.")
     elif deal_a.ev_reported_ebitda and not deal_b.ev_reported_ebitda:
-        print(f"  {deal_b.name} has NO disclosed EBITDA — direct multiple comparison impossible.")
-        print(f"  {deal_a.name} at {fmt(deal_a.ev_reported_ebitda)} EV/Reported EBITDA is the only")
-        print(f"  deal where this metric can be computed.")
+        print(C["key_obs"] + f"  {deal_b.name} has NO disclosed EBITDA — direct multiple comparison impossible.")
+        print(C["key_obs"] + f"  {deal_a.name} at {fmt(deal_a.ev_reported_ebitda)}{C['key_obs']} EV/Reported EBITDA is the only")
+        print(C["key_obs"] + "  deal where this metric can be computed.")
     elif deal_b.ev_reported_ebitda and not deal_a.ev_reported_ebitda:
-        print(f"  {deal_a.name} has NO disclosed EBITDA — direct multiple comparison impossible.")
+        print(C["key_obs"] + f"  {deal_a.name} has NO disclosed EBITDA — direct multiple comparison impossible.")
     print()
 
     # --- Revenue multiple comparison ---
     if deal_a.ev_revenue and deal_b.ev_revenue:
         rv_diff = deal_a.ev_revenue - deal_b.ev_revenue
-        print(f"  On EV/Revenue: {deal_a.name.split('/')[0].strip()} at {fmt(deal_a.ev_revenue)} vs "
-              f"{deal_b.name.split('+')[0].strip()} at {fmt(deal_b.ev_revenue)}.")
+        print(f"  On EV/Revenue: {C['value']}{deal_a.name.split('/')[0].strip()}{C['reset']} at {fmt(deal_a.ev_revenue)}{C['reset']} vs "
+              f"{C['value']}{deal_b.name.split('+')[0].strip()}{C['reset']} at {fmt(deal_b.ev_revenue)}{C['reset']}.")
         if abs(rv_diff) > 0.5:
             higher_rv = deal_a.name if rv_diff > 0 else deal_b.name
-            print(f"  {higher_rv.split('/')[0].strip()} pays a materially higher revenue multiple.")
+            print(C["caution"] + f"  {higher_rv.split('/')[0].strip()} pays a materially higher revenue multiple.")
     print()
 
     # --- Synergies ---
     print_header("SYNERGY COMPARISON")
     for d in [deal_a, deal_b]:
-        print(f"  [{d.name}]")
-        print(f"  Cost Synergies:    {fmt_mm(d.synergies.cost_synergies_mm)}")
-        print(f"    {d.synergies.cost_synergies_note}")
-        print(f"  Revenue Synergies: {fmt_mm(d.synergies.revenue_synergies_mm)}")
-        print(f"    {d.synergies.revenue_synergies_note}")
-        print(f"  Revenue Synergy Inflation: {d.synergies.revenue_synergy_inflation}")
+        print(C["deal"] + f"  [{d.name}]")
+        print(f"  {lbl('Cost Synergies:')   :<30} {fmt_mm(d.synergies.cost_synergies_mm)}")
+        print(C["dim"] + f"    {d.synergies.cost_synergies_note}")
+        print(f"  {lbl('Revenue Synergies:'):<30} {fmt_mm(d.synergies.revenue_synergies_mm)}")
+        print(C["dim"] + f"    {d.synergies.revenue_synergies_note}")
+        print(f"  {lbl('Rev. Synergy Inflation:'):<30} {C['caution']}{d.synergies.revenue_synergy_inflation}")
         print()
 
-    print("  ASSESSMENT: Which deal uses more inflated revenue synergies?")
+    print(C["key_obs"] + "  ASSESSMENT: Which deal uses more inflated revenue synergies?")
     print()
     print("  DOWNTOWN: The deal premium is almost entirely explained by unquantified")
     print("  strategic value — UMG buying indie distribution market share. At 19.4x")
@@ -524,7 +552,7 @@ def compare_deals(deal_a: Deal, deal_b: Deal):
     print("  growth that justifies the combined $7.5B valuation — but the math is")
     print("  opaque without profitability data.")
     print()
-    print("  BOTTOM LINE: Downtown's synergy inflation is more visible because we")
+    print(C["value"] + "  BOTTOM LINE: " + C["reset"] + "Downtown's synergy inflation is more visible because we")
     print("  can see the EBITDA ($40M) and the price ($775M) don't add up without")
     print("  significant growth assumptions. Playlist/EGYM hides the question entirely")
     print("  by not disclosing EBITDA — which is arguably worse from a transparency")
@@ -534,28 +562,28 @@ def compare_deals(deal_a: Deal, deal_b: Deal):
     # --- Integration Costs ---
     print_header("INTEGRATION COSTS")
     for d in [deal_a, deal_b]:
-        print(f"  [{d.name}]")
-        print(f"  Disclosed:  {fmt_mm(d.integration_costs.total_mm)}")
-        print(f"  Notes:      {d.integration_costs.note}")
+        print(C["deal"] + f"  [{d.name}]")
+        print(f"  {lbl('Disclosed:'):<30} {fmt_mm(d.integration_costs.total_mm)}")
+        print(C["dim"] + f"  Notes: {d.integration_costs.note}")
         print()
 
     # --- Comparable Transactions ---
     print_header("COMPARABLE TRANSACTIONS")
     for d in [deal_a, deal_b]:
-        print(f"  [{d.name}]")
+        print(C["deal"] + f"  [{d.name}]")
         for ct in d.comparable_transactions:
             ev_e = f"EV/EBITDA: {fmt(ct.ev_ebitda)}" if ct.ev_ebitda else ""
             ev_r = f"EV/Rev: {fmt(ct.ev_revenue)}" if ct.ev_revenue else ""
-            mult_str = " | ".join(filter(None, [ev_r, ev_e, ct.note]))
-            print(f"    {ct.name} ({ct.year}): {mult_str}")
+            mult_str = " | ".join(filter(None, [ev_r, ev_e, C["dim"] + ct.note]))
+            print(f"    {C['value']}{ct.name} ({ct.year}): {mult_str}")
         print()
 
     # --- Risks ---
     print_header("KEY RISKS")
     for d in [deal_a, deal_b]:
-        print(f"  [{d.name}]")
+        print(C["deal"] + f"  [{d.name}]")
         for i, r in enumerate(d.risks, 1):
-            print(f"    {i}. {r}")
+            print(C["risk"] + f"    {i}. " + C["reset"] + r)
         print()
 
     # --- EBITDA Definition Deep Dive ---
@@ -564,17 +592,17 @@ def compare_deals(deal_a: Deal, deal_b: Deal):
     print("  Here is what we know about each deal's EBITDA definition:")
     print()
     for d in [deal_a, deal_b]:
-        print(f"  [{d.name}]")
-        print(f"  Reported EBITDA: {fmt_mm(d.reported_ebitda_mm)}")
-        print(f"  Source: {d.ebitda_source_note}")
-        print(f"  Warning: {d.ebitda_definition_warning}")
+        print(C["deal"] + f"  [{d.name}]")
+        print(f"  {lbl('Reported EBITDA:'):<30} {fmt_mm(d.reported_ebitda_mm)}")
+        print(C["dim"] + f"  Source: {d.ebitda_source_note}")
+        print(C["warn"] + f"  Warning: {d.ebitda_definition_warning}")
         if d.adjusted_ebitda_mm:
-            print(f"  Adjusted EBITDA: {fmt_mm(d.adjusted_ebitda_mm)} (NOT USED IN ANALYSIS)")
-            print(f"  Gap (Adj - Reported): {fmt_mm(d.adjusted_ebitda_mm - d.reported_ebitda_mm)}")
+            print(f"  {lbl('Adjusted EBITDA:'):<30} {fmt_mm(d.adjusted_ebitda_mm)} {C['caution']}(NOT USED IN ANALYSIS)")
+            print(f"  {lbl('Gap (Adj - Reported):'):<30} {fmt_mm(d.adjusted_ebitda_mm - d.reported_ebitda_mm)}")
         print()
 
-    print("  CONCLUSION ON EBITDA COMPARABILITY:")
-    print("  These two deals CANNOT be compared on EV/EBITDA because Playlist/EGYM")
+    print(C["value"] + "  CONCLUSION ON EBITDA COMPARABILITY:")
+    print(C["reset"] + "  These two deals CANNOT be compared on EV/EBITDA because Playlist/EGYM")
     print("  discloses no EBITDA figure at all. Downtown's ~$40M is itself uncertain")
     print("  (sourced from anonymous parties, definition unknown). The only reliable")
     print("  comparison metric is EV/Revenue, where Downtown trades at 6.0x net revenue")
@@ -588,10 +616,10 @@ def compare_deals(deal_a: Deal, deal_b: Deal):
     for key in sorted(all_source_keys):
         if key in SOURCES:
             s = SOURCES[key]
-            print(f"  [{key}]")
-            print(f"    URL:  {s['url']}")
-            print(f"    Desc: {s['description']}")
-            print(f"    Date: {s['accessed']}")
+            print(C["value"] + f"  [{key}]")
+            print(C["dim"] + f"    URL:  {s['url']}")
+            print(C["dim"] + f"    Desc: {s['description']}")
+            print(C["dim"] + f"    Date: {s['accessed']}")
             print()
 
 
@@ -601,14 +629,14 @@ def compare_deals(deal_a: Deal, deal_b: Deal):
 
 if __name__ == "__main__":
     print()
-    print("=" * 90)
-    print("  FINANCIAL DEAL COMPARISON TOOL")
-    print("  VMG / Downtown Music  vs.  Playlist + EGYM")
-    print("  Using REPORTED EBITDA only (not adjusted)")
-    print("=" * 90)
+    print(C["header"] + "=" * 90)
+    print(C["header"] + "  FINANCIAL DEAL COMPARISON TOOL")
+    print(C["header"] + "  VMG / Downtown Music  vs.  Playlist + EGYM")
+    print(C["header"] + "  Using REPORTED EBITDA only (not adjusted)")
+    print(C["header"] + "=" * 90)
 
     compare_deals(downtown, playlist_egym)
 
     print_separator()
-    print("  END OF ANALYSIS")
+    print(C["header"] + "  END OF ANALYSIS")
     print_separator()
