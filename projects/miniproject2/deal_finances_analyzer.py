@@ -18,6 +18,14 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 try:
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+    import numpy as np
+    HAS_MATPLOTLIB = True
+except ImportError:
+    HAS_MATPLOTLIB = False
+
+try:
     from colorama import init, Fore, Style
     init(autoreset=True)
     C = {
@@ -624,6 +632,80 @@ def compare_deals(deal_a: Deal, deal_b: Deal):
 
 
 # =============================================================================
+# CHARTS
+# =============================================================================
+
+def plot_comparison(deal_a: Deal, deal_b: Deal):
+    """Generate bar charts comparing the two deals."""
+    if not HAS_MATPLOTLIB:
+        print("matplotlib not installed — skipping charts.")
+        return
+
+    labels = [deal_a.name.split("/")[0].strip(), deal_b.name.split("+")[0].strip()]
+    colors = ["#4C9BE8", "#E87B4C"]
+
+    fig, axes = plt.subplots(2, 2, figsize=(13, 9))
+    fig.suptitle("Deal Comparison: VMG/Downtown  vs.  Playlist+EGYM", fontsize=14, fontweight="bold")
+
+    # --- Chart 1: Enterprise Value ---
+    ax = axes[0, 0]
+    evs = [deal_a.enterprise_value_mm / 1000, deal_b.enterprise_value_mm / 1000]
+    bars = ax.bar(labels, evs, color=colors, width=0.5)
+    ax.set_title("Enterprise Value ($B)")
+    ax.set_ylabel("$ Billions")
+    for bar, val in zip(bars, evs):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.05,
+                f"${val:.1f}B", ha="center", va="bottom", fontweight="bold")
+    ax.set_ylim(0, max(evs) * 1.2)
+
+    # --- Chart 2: Revenue ---
+    ax = axes[0, 1]
+    revs = [deal_a.revenue_mm, deal_b.revenue_mm]
+    rev_labels_short = ["Net Rev\n(Downtown)", "Combined Net Rev\n(Playlist+EGYM)"]
+    bars = ax.bar(rev_labels_short, revs, color=colors, width=0.5)
+    ax.set_title("Net Revenue ($M)")
+    ax.set_ylabel("$ Millions")
+    for bar, val in zip(bars, revs):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 5,
+                f"${val:.0f}M", ha="center", va="bottom", fontweight="bold")
+    ax.set_ylim(0, max(revs) * 1.25)
+
+    # --- Chart 3: EV / Revenue Multiple ---
+    ax = axes[1, 0]
+    ev_revs = [deal_a.ev_revenue, deal_b.ev_revenue]
+    bars = ax.bar(labels, ev_revs, color=colors, width=0.5)
+    ax.set_title("EV / Net Revenue Multiple")
+    ax.set_ylabel("Multiple (x)")
+    ax.axhline(y=5, color="gray", linestyle="--", linewidth=0.8, label="5x reference")
+    for bar, val in zip(bars, ev_revs):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.1,
+                f"{val:.1f}x", ha="center", va="bottom", fontweight="bold")
+    ax.set_ylim(0, max(ev_revs) * 1.25)
+    ax.legend(fontsize=8)
+
+    # --- Chart 4: EV / EBITDA (Downtown only; Playlist/EGYM N/A) ---
+    ax = axes[1, 1]
+    ebitda_vals = [
+        deal_a.ev_reported_ebitda if deal_a.ev_reported_ebitda else 0,
+        deal_b.ev_reported_ebitda if deal_b.ev_reported_ebitda else 0,
+    ]
+    bar_labels = [labels[0], f"{labels[1]}\n(N/A — not disclosed)"]
+    bars = ax.bar(bar_labels, ebitda_vals, color=colors, width=0.5)
+    ax.set_title("EV / Reported EBITDA Multiple")
+    ax.set_ylabel("Multiple (x)")
+    ax.axhline(y=10, color="gray", linestyle="--", linewidth=0.8, label="10x reference (services norm)")
+    for bar, val, orig in zip(bars, ebitda_vals, [deal_a.ev_reported_ebitda, deal_b.ev_reported_ebitda]):
+        label = f"{val:.1f}x" if orig else "N/A"
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.1,
+                label, ha="center", va="bottom", fontweight="bold")
+    ax.set_ylim(0, max(ebitda_vals + [12]) * 1.25)
+    ax.legend(fontsize=8)
+
+    plt.tight_layout()
+    plt.show()
+
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -636,6 +718,7 @@ if __name__ == "__main__":
     print(C["header"] + "=" * 90)
 
     compare_deals(downtown, playlist_egym)
+    plot_comparison(downtown, playlist_egym)
 
     print_separator()
     print(C["header"] + "  END OF ANALYSIS")
