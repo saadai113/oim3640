@@ -752,7 +752,6 @@ def plot_comparable_transactions(deal_a: Deal, deal_b: Deal):
     ax.legend(handles=legend_patches, fontsize=8)
     ax.set_ylim(0, max(values) * 1.25)
     plt.tight_layout()
-    plt.show()
 
 
 def plot_sensitivity_table(deal: Deal, ebitda_scenarios: list, ev_scenarios: list):
@@ -817,7 +816,6 @@ def plot_sensitivity_table(deal: Deal, ebitda_scenarios: list, ev_scenarios: lis
     fig.text(0.5, 0.02, note, ha="center", fontsize=9, style="italic", color="#333")
 
     plt.tight_layout()
-    plt.show()
 
 
 # =============================================================================
@@ -840,6 +838,8 @@ if __name__ == "__main__":
         ebitda_scenarios=[20, 30, 40, 50, 60, 75],
         ev_scenarios=[600, 700, 775, 850, 950],
     )
+    if HAS_MATPLOTLIB:
+        plt.show()
 
     print_separator()
     print(C["header"] + "  END OF ANALYSIS")
