@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Hello, {{ name }}!</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; }
+        h1 { color: red; }
+        .badge { display: inline-block; background: #e0e0ff; border-radius: 4px; padding: 2px 8px; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+
+    <h1>Hello, {{ name }}!</h1>
+    <p>Welcome to Flask development.</p>
+
+    {% if name == 'World' %}
+        <p>You didn't provide a name — try visiting <code>/hello/YourName</code>.</p>
+    {% else %}
+        <p>Great to meet you, <strong>{{ name }}</strong>!</p>
+        <p>Your name has <span class="badge">{{ name | length }} letters</span>.</p>
+    {% endif %}
+
+    <hr>
+    <h3>Some greetings for {{ name }}:</h3>
+    <ul>
+        {% for greeting in ['Hello', 'Hi', 'Hey', 'Howdy'] %}
+            <li>{{ greeting }}, {{ name }}!</li>
+        {% endfor %}
+    </ul>
+
+</body>
+</html>
