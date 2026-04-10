@@ -24,7 +24,7 @@ def stock_mergers():
     from datetime import datetime, timedelta
 
     today = datetime.now().strftime('%Y-%m-%d')
-    thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+    thirty_days_ago = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
 
     # SEC EDGAR EFTS API: SC TO-T = third-party tender offers, S-4 = merger registrations
     url = (
@@ -43,21 +43,33 @@ def stock_mergers():
 
     hits = data.get('hits', {}).get('hits', [])
     if not hits:
-        return '<h2>No merger or acquisition filings found in the last 30 days.</h2>'
+        return '<h2>No merger or acquisition filings found in the last 90 days.</h2>'
 
     seen = set()
     rows = []
     for hit in hits:
         src = hit.get('_source', {})
-        company = src.get('entity_name', 'Unknown')
+        # EDGAR returns display_names as a list of strings like "Company Name (TICKER)"
+        display_names = src.get('display_names', [])
+        if display_names and isinstance(display_names[0], str):
+            company = display_names[0]
+            ticker = ''
+        elif display_names and isinstance(display_names[0], dict):
+            company = display_names[0].get('name', 'Unknown')
+            ticker = display_names[0].get('ticker', '')
+        else:
+            company = src.get('entity_name', 'Unknown')
+            ticker = ''
         form_type = src.get('form_type', '')
         file_date = src.get('file_date', '')
+        label = f'{company} ({ticker})' if ticker else company
+        company = company.split('(')[0].strip()  # use name without ticker for dedup
         if company not in seen:
             seen.add(company)
-            rows.append(f'<li><b>{company}</b> &mdash; {form_type} filed on {file_date}</li>')
+            rows.append(f'<li><b>{label}</b> &mdash; {form_type} filed on {file_date}</li>')
 
     return (
-        '<h2>Merger &amp; Acquisition Filings (Last 30 Days) &mdash; Source: SEC EDGAR</h2>'
+        '<h2>Merger &amp; Acquisition Filings (Last 90 Days) &mdash; Source: SEC EDGAR</h2>'
         '<ul>' + ''.join(rows) + '</ul>'
     )
 
