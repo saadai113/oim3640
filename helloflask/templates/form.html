@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form Demo</title>
+</head>
+<body>
+    <h1>Form Demo</h1>
+    <form method="POST" action="/submit">
+        <label for="name">Your Name:</label>
+        <input type="text" id="name" name="name" required>
+        <input type="submit" value="Submit">
+    </form>
+
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; }
+        h1 { color: green; }
+        form { margin-top: 20px; }
+        input[type="text"] { padding: 8px; width: 80%; }
+        input[type="submit"] { padding: 8px 16px; }
+    </style>
