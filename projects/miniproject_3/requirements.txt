@@ -1,5 +1,4 @@
-helloflask
+flask
 gunicorn
-yfinance
-openai
+requests
 python-dotenv
