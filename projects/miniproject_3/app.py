@@ -13,6 +13,9 @@ import os
 import math
 from flask import Flask, render_template, request, jsonify
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
