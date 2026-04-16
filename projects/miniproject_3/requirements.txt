@@ -1,0 +1,5 @@
+helloflask
+gunicorn
+yfinance
+openai
+python-dotenv
