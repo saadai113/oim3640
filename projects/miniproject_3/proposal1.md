@@ -2,14 +2,14 @@
  - A small Flask web application that accepts a place name or address in the Greater Boston area, geocodes it via the Mapbox Geocoding API, and returns the closest MBTA stop using the MBTA v3 API's distance-sorted stop endpoint. 
  - The frontend displays the origin and the nearest stop on a Mapbox-rendered map.
 
-## 3. Objectives
+## 1. Objectives
  - The project should do the  following:
  - A user can submit a place name through a web form and receive the name, ID, and coordinates of the nearest MBTA stop.
  - 1. The origin and stop are plotted on a map.
  - 2. The system fails when an upstream API is unreachable.
  - 3. API keys are kept out of source control and loaded from environment variables.
 
-## 4. Approach
+## 2. Approach
 
 The application is structured as a thin Flask service with two routes:
 
@@ -20,14 +20,14 @@ Distance is computed two ways. The MBTA API does the actual sort using `filter[l
 
 To reduce ambiguous geocoding results, the Mapbox request is biased toward downtown Boston using the `proximity` parameter and constrained to an eastern-Massachusetts bounding box. This is a heuristic, not a guarantee.
 
-## 5. Scope and Assumptions
+## 3. Scope and Assumptions
  - Single-user local Flask app. Greater Boston only. Plain HTML/JS frontend. Synchronous request handling. Manual testing.
  - Assumptions that may not hold.**
 The Mapbox proximity bias and bounding box correctly disambiguate most local queries. False matches are likely for generic street names.
 - A 0.05-degree radius (roughly 3.5 miles at this latitude) is wide enough to find a stop for most queries inside the service area and narrow enough to keep response payloads small. Queries from the edges of the service area may return no results.
 - Both upstream APIs remain available and backwards-compatible during the project window. The MBTA API has historically been stable but is not guaranteed.
 
-## 6. Risks and Failure Modes
+## 4. Risks and Failure Modes
 
 A realistic accounting of what can go wrong:
 
@@ -41,7 +41,7 @@ A realistic accounting of what can go wrong:
 | Scope creep into routing or scheduling | Medium | Project does not finish | Hold the line on the non-goals listed above |
 
 
-## 9. Timeline
+## 4. Timeline
 
 A realistic estimate, with buffer:
 
@@ -52,7 +52,7 @@ A realistic estimate, with buffer:
 | 3 | Documentation, testing, learning log | Low |
 | 4 | Buffer for unforeseen issues | — |
 
-## 10. Evaluation
+## 5. Evaluation
 
 Success will be measured by:
 

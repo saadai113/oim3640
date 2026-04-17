@@ -2,7 +2,7 @@
 
 Flask app: enter a place/address, get the closest MBTA stop on a map.
 
-# Setup
+## Setup
 
 ```bash
 pip install -r requirements.txt
