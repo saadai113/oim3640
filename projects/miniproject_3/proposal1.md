@@ -41,7 +41,7 @@ A realistic accounting of what can go wrong:
 | Scope creep into routing or scheduling | Medium | Project does not finish | Hold the line on the non-goals listed above |
 
 
-## 4. Timeline
+## 5. Timeline
 
 A realistic estimate, with buffer:
 
@@ -52,7 +52,7 @@ A realistic estimate, with buffer:
 | 3 | Documentation, testing, learning log | Low |
 | 4 | Buffer for unforeseen issues | — |
 
-## 5. Evaluation
+## 6. Evaluation
 
 Success will be measured by:
 
