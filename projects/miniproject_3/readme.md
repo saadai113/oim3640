@@ -1,4 +1,4 @@
-## Proposal: Finding The Nearest MBTA Stop
+# Objective: Finding The Nearest MBTA Stop
 
 Flask app: enter a place/address, get the closest MBTA stop on a map.
 

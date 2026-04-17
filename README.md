@@ -8,3 +8,6 @@ This is my course repository for OIM3640.
 - Interests: Padel
 
 Link to Project: C:\Users\sabdullah2\Documents\GitHub\oim3640\projects\miniproject_1\proposal.md
+
+Link to Mini-project3:
+C:\Users\sabdullah2\Documents\GitHub\oim3640\projects\miniproject_3\proposal1.md
