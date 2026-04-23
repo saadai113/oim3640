@@ -3,382 +3,1621 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Resume Matcher</title>
+  <title>ResumeMatch — AI-Powered Resume Scoring</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --navy:   #0f172a;
+      --navy2:  #1e293b;
+      --indigo: #4f46e5;
+      --indigo-light: #6366f1;
+      --green:  #16a34a;
+      --green-bg: #f0fdf4;
+      --red:    #dc2626;
+      --red-bg: #fef2f2;
+      --amber:  #d97706;
+      --amber-bg: #fffbeb;
+      --gray50: #f8fafc;
+      --gray100:#f1f5f9;
+      --gray200:#e2e8f0;
+      --gray400:#94a3b8;
+      --gray600:#475569;
+      --gray800:#1e293b;
+      --white:  #ffffff;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #f0f2f5;
-      color: #1a1a2e;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+      background: var(--gray50);
+      color: var(--gray800);
       min-height: 100vh;
     }
 
-    header {
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      color: #fff;
-      padding: 1.5rem 2rem;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    /* ── NAV ── */
+    nav {
+      background: var(--navy);
+      padding: 0 2rem;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.06);
     }
-    header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
-    header p  { font-size: 0.85rem; opacity: 0.65; margin-top: 0.25rem; }
+    .nav-logo {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -0.03em;
+    }
+    .nav-logo span { color: var(--indigo-light); }
+    .nav-links { display: flex; gap: 1.5rem; align-items: center; }
+    .nav-links a {
+      color: rgba(255,255,255,0.6);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--white); }
 
-    .container { max-width: 960px; margin: 2rem auto; padding: 0 1.5rem; }
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(135deg, var(--navy) 0%, #1a1f35 50%, #0f1729 100%);
+      padding: 4rem 2rem 5rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: "";
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 60% 50%, rgba(99,102,241,0.15) 0%, transparent 70%);
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.3);
+      color: #a5b4fc;
+      font-size: 0.78rem; font-weight: 600; letter-spacing: 0.05em;
+      padding: 0.3rem 0.9rem; border-radius: 20px;
+      margin-bottom: 1.25rem;
+      position: relative;
+    }
+    .hero h1 {
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 800; letter-spacing: -0.04em;
+      color: var(--white); line-height: 1.2;
+      position: relative; margin-bottom: 1rem;
+    }
+    .hero h1 em { font-style: normal; color: #a5b4fc; }
+    .hero p {
+      color: rgba(255,255,255,0.55);
+      font-size: 1.05rem; max-width: 520px;
+      margin: 0 auto 2rem; line-height: 1.65;
+      position: relative;
+    }
+    .hero-steps {
+      display: flex; justify-content: center; gap: 2rem;
+      position: relative; flex-wrap: wrap;
+    }
+    .hero-step {
+      display: flex; align-items: center; gap: 0.5rem;
+      color: rgba(255,255,255,0.5); font-size: 0.82rem;
+    }
+    .hero-step-num {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: rgba(99,102,241,0.25);
+      color: #a5b4fc; font-size: 0.7rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
 
-    .card {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-      padding: 1.5rem;
+    /* ── MAIN LAYOUT ── */
+    .main { max-width: 1200px; margin: 0 auto; padding: 2.5rem 1.5rem; }
+
+    /* ── SPLIT INPUT PANEL ── */
+    .input-panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
       margin-bottom: 1.25rem;
     }
-    .card h2 {
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #888;
-      margin-bottom: 0.9rem;
+    @media (max-width: 720px) { .input-panel { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.5rem;
+      border: 1px solid var(--gray200);
     }
+    .panel-header {
+      display: flex; align-items: center; gap: 0.6rem;
+      margin-bottom: 1.1rem;
+    }
+    .panel-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+    }
+    .panel-icon-purple { background: #ede9fe; }
+    .panel-icon-blue   { background: #dbeafe; }
+    .panel-title  { font-size: 0.95rem; font-weight: 700; color: var(--gray800); }
+    .panel-subtitle { font-size: 0.78rem; color: var(--gray400); margin-top: 0.1rem; }
 
     /* Upload zone */
     .upload-zone {
-      border: 2px dashed #cbd5e1;
+      border: 2px dashed var(--gray200);
       border-radius: 10px;
-      padding: 2.5rem 1rem;
+      padding: 2.25rem 1rem;
       text-align: center;
       cursor: pointer;
       transition: border-color 0.2s, background 0.2s;
+      background: var(--gray50);
     }
     .upload-zone:hover, .upload-zone.drag-over {
-      border-color: #6366f1;
-      background: #f5f3ff;
+      border-color: var(--indigo);
+      background: #eef2ff;
     }
     .upload-zone input { display: none; }
-    .upload-icon { font-size: 2.2rem; margin-bottom: 0.5rem; }
-    .upload-zone p   { color: #64748b; font-size: 0.9rem; }
-    .upload-zone span { color: #6366f1; font-weight: 600; cursor: pointer; }
+    .upload-zone-icon { font-size: 2rem; margin-bottom: 0.6rem; }
+    .upload-zone p { color: var(--gray600); font-size: 0.88rem; line-height: 1.5; }
+    .upload-zone p span { color: var(--indigo); font-weight: 600; }
+    .upload-zone-hint { font-size: 0.75rem; color: var(--gray400); margin-top: 0.3rem; }
 
-    .file-list { margin-top: 0.75rem; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .file-chips { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.85rem; }
     .file-chip {
-      display: flex; align-items: center; gap: 0.4rem;
-      background: #f1f5f9; border-radius: 20px;
-      padding: 0.3rem 0.75rem; font-size: 0.82rem; color: #334155;
+      display: flex; align-items: center; gap: 0.35rem;
+      background: #ede9fe; border-radius: 6px;
+      padding: 0.3rem 0.65rem; font-size: 0.8rem;
+      color: #4c1d95; font-weight: 500; max-width: 200px;
     }
-    .file-chip button {
+    .file-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-chip-rm {
       background: none; border: none; cursor: pointer;
-      color: #94a3b8; font-size: 1rem; line-height: 1;
-      padding: 0; margin-left: 2px;
+      color: #7c3aed; font-size: 1rem; line-height: 1; padding: 0;
+      flex-shrink: 0;
     }
-    .file-chip button:hover { color: #ef4444; }
+    .file-chip-rm:hover { color: var(--red); }
 
-    /* Textarea */
+    /* Job description */
     textarea {
-      width: 100%; border: 1px solid #e2e8f0; border-radius: 8px;
-      padding: 0.75rem; font-size: 0.92rem; font-family: inherit;
-      resize: vertical; min-height: 160px; color: #1a1a2e;
-      transition: border-color 0.2s;
+      width: 100%; border: 1.5px solid var(--gray200); border-radius: 10px;
+      padding: 0.85rem 1rem; font-size: 0.88rem; font-family: inherit;
+      resize: vertical; min-height: 200px; color: var(--gray800);
+      background: var(--gray50);
+      transition: border-color 0.2s, background 0.2s;
+      line-height: 1.6;
     }
-    textarea:focus { outline: none; border-color: #6366f1; }
+    textarea:focus { outline: none; border-color: var(--indigo); background: var(--white); }
+    textarea::placeholder { color: var(--gray400); }
 
-    /* Submit button */
-    .btn {
-      display: inline-flex; align-items: center; gap: 0.5rem;
-      padding: 0.7rem 1.8rem; border: none; border-radius: 8px;
-      font-size: 1rem; font-weight: 600; cursor: pointer;
-      transition: background 0.2s, transform 0.1s;
+    /* ── SUBMIT ROW ── */
+    .submit-row {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem;
     }
-    .btn:active { transform: scale(0.98); }
-    .btn-primary { background: #6366f1; color: #fff; }
-    .btn-primary:hover { background: #4f46e5; }
-    .btn-primary:disabled { background: #a5b4fc; cursor: default; transform: none; }
+    .submit-info { font-size: 0.82rem; color: var(--gray400); }
+    .submit-info strong { color: var(--gray600); }
 
-    /* Error */
-    .error-box {
-      background: #fef2f2; border: 1px solid #fca5a5;
-      color: #b91c1c; border-radius: 8px; padding: 0.8rem 1rem;
-      font-size: 0.9rem; margin-bottom: 1rem;
+    .btn-analyze {
+      display: inline-flex; align-items: center; gap: 0.55rem;
+      padding: 0.8rem 2.2rem; background: var(--indigo);
+      color: var(--white); border: none; border-radius: 10px;
+      font-size: 1rem; font-weight: 700; cursor: pointer;
+      box-shadow: 0 4px 14px rgba(79,70,229,0.35);
+      transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+      letter-spacing: -0.01em;
+    }
+    .btn-analyze:hover { background: #4338ca; box-shadow: 0 6px 20px rgba(79,70,229,0.45); }
+    .btn-analyze:active { transform: scale(0.98); }
+    .btn-analyze:disabled { background: #a5b4fc; box-shadow: none; cursor: default; transform: none; }
+
+    /* ── ERROR ── */
+    .error-bar {
+      background: var(--red-bg); border: 1px solid #fca5a5;
+      color: var(--red); border-radius: 10px;
+      padding: 0.85rem 1.1rem; font-size: 0.88rem;
+      margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;
     }
 
-    /* Spinner */
-    .spinner-wrap { text-align: center; padding: 3rem 0; color: #6366f1; }
+    /* ── LOADING ── */
+    .loading-wrap {
+      background: var(--white); border-radius: var(--radius);
+      box-shadow: var(--shadow); border: 1px solid var(--gray200);
+      padding: 3.5rem 2rem; text-align: center;
+    }
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner {
-      width: 40px; height: 40px; border: 3px solid #e0e7ff;
-      border-top-color: #6366f1; border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 1rem;
+      width: 44px; height: 44px;
+      border: 3px solid #e0e7ff; border-top-color: var(--indigo);
+      border-radius: 50%; animation: spin 0.75s linear infinite;
+      margin: 0 auto 1.25rem;
     }
-    .spinner-wrap p { color: #64748b; font-size: 0.9rem; }
+    .loading-wrap h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.4rem; }
+    .loading-wrap p  { font-size: 0.85rem; color: var(--gray400); }
+    .loading-steps {
+      display: flex; flex-direction: column; gap: 0.5rem;
+      margin-top: 1.25rem; max-width: 260px; margin-left: auto; margin-right: auto;
+    }
+    .loading-step {
+      display: flex; align-items: center; gap: 0.6rem;
+      font-size: 0.82rem; color: var(--gray400);
+    }
+    .loading-step-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--gray200); flex-shrink: 0;
+    }
+    .loading-step.active .loading-step-dot { background: var(--indigo); }
+    .loading-step.active { color: var(--gray600); font-weight: 500; }
 
-    /* Results header */
-    .results-header {
+    /* ── RESULTS HEADER ── */
+    .results-header-row {
       display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 1rem;
+      margin-bottom: 1.25rem;
     }
-    .results-header h2 { font-size: 1.1rem; font-weight: 700; }
-    .results-count {
-      background: #e0e7ff; color: #4338ca;
-      border-radius: 20px; padding: 0.2rem 0.65rem;
-      font-size: 0.78rem; font-weight: 600;
+    .results-header-row h2 { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; }
+    .results-tag {
+      background: var(--indigo); color: var(--white);
+      border-radius: 20px; padding: 0.25rem 0.75rem;
+      font-size: 0.75rem; font-weight: 700; letter-spacing: 0.03em;
     }
 
-    /* Candidate card */
-    .candidate-card {
-      border: 1px solid #e2e8f0; border-radius: 10px;
-      margin-bottom: 1rem; overflow: hidden;
+    /* ── CANDIDATE CARD ── */
+    .cand-card {
+      background: var(--white);
+      border: 1px solid var(--gray200);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      margin-bottom: 1rem;
+      overflow: hidden;
       transition: box-shadow 0.2s;
     }
-    .candidate-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .cand-card:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.1); }
 
-    .candidate-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 1rem 1.25rem; cursor: pointer;
-      background: #fafafa; border-bottom: 1px solid #e2e8f0;
+    /* Card top bar color by score */
+    .cand-card-bar { height: 4px; }
+    .bar-high   { background: linear-gradient(90deg, #22c55e, #16a34a); }
+    .bar-medium { background: linear-gradient(90deg, #f59e0b, #d97706); }
+    .bar-low    { background: linear-gradient(90deg, #f87171, #dc2626); }
+
+    /* Card header */
+    .cand-header {
+      display: flex; align-items: center;
+      padding: 1.1rem 1.4rem; cursor: pointer;
+      gap: 1rem;
     }
-    .candidate-header:hover { background: #f1f5f9; }
+    .cand-header:hover { background: var(--gray50); }
 
-    .candidate-left { display: flex; align-items: center; gap: 0.75rem; }
-    .rank-badge {
-      width: 32px; height: 32px; border-radius: 50%;
+    /* Rank badge */
+    .rank { width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 0.85rem; flex-shrink: 0;
+      font-weight: 800; font-size: 0.9rem; }
+    .rank-1 { background: #fef9c3; color: #713f12; }
+    .rank-2 { background: #f1f5f9; color: #334155; }
+    .rank-3 { background: #fff7ed; color: #7c2d12; }
+    .rank-n { background: var(--gray100); color: var(--gray600); }
+
+    .cand-info { flex: 1; min-width: 0; }
+    .cand-name { font-size: 1rem; font-weight: 700; color: var(--gray800); }
+    .cand-meta {
+      display: flex; flex-wrap: wrap; gap: 0.75rem;
+      margin-top: 0.25rem;
     }
-    .rank-1 { background: #fef3c7; color: #92400e; }
-    .rank-2 { background: #f1f5f9; color: #475569; }
-    .rank-3 { background: #fff7ed; color: #9a3412; }
-    .rank-other { background: #f1f5f9; color: #64748b; }
-
-    .candidate-name { font-weight: 600; font-size: 1rem; }
-    .candidate-meta { font-size: 0.8rem; color: #64748b; margin-top: 0.1rem; }
-
-    .score-circle {
-      width: 52px; height: 52px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      flex-direction: column; flex-shrink: 0;
-      font-weight: 700; font-size: 1.1rem;
-      border: 3px solid;
+    .cand-meta-item {
+      display: flex; align-items: center; gap: 0.3rem;
+      font-size: 0.78rem; color: var(--gray400);
     }
-    .score-high   { border-color: #22c55e; color: #16a34a; }
-    .score-medium { border-color: #f59e0b; color: #d97706; }
-    .score-low    { border-color: #ef4444; color: #dc2626; }
 
-    .candidate-body { padding: 1.25rem; }
+    /* Score donut */
+    .score-donut {
+      position: relative; width: 64px; height: 64px; flex-shrink: 0;
+    }
+    .score-donut svg { transform: rotate(-90deg); }
+    .score-donut-val {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+    }
+    .score-num { font-size: 1.1rem; font-weight: 800; line-height: 1; }
+    .score-label-small { font-size: 0.55rem; color: var(--gray400); letter-spacing: 0.05em; margin-top: 1px; }
+    .score-high-c   { color: var(--green); }
+    .score-medium-c { color: var(--amber); }
+    .score-low-c    { color: var(--red); }
 
-    /* Sub-scores */
-    .subscores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.25rem; }
-    @media (max-width: 520px) { .subscores { grid-template-columns: 1fr 1fr; } }
+    .cand-chevron { color: var(--gray400); font-size: 1.1rem; transition: transform 0.2s; }
+    .cand-chevron.open { transform: rotate(180deg); }
 
-    .subscore-item { text-align: center; }
-    .subscore-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 0.3rem; }
-    .subscore-bar-wrap { background: #f1f5f9; border-radius: 4px; height: 6px; width: 100%; }
-    .subscore-bar { height: 6px; border-radius: 4px; background: #6366f1; transition: width 0.6s ease; }
-    .subscore-value { font-size: 0.85rem; font-weight: 600; color: #334155; margin-top: 0.25rem; }
+    /* Card body */
+    .cand-body { padding: 0 1.4rem 1.4rem; border-top: 1px solid var(--gray100); }
+
+    /* Sub-scores row */
+    .subscores-row {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem; padding: 1.1rem 0 1.1rem;
+    }
+    @media (max-width: 480px) { .subscores-row { grid-template-columns: 1fr 1fr; } }
+
+    .ss-item { }
+    .ss-label {
+      font-size: 0.7rem; text-transform: uppercase;
+      letter-spacing: 0.07em; color: var(--gray400);
+      font-weight: 600; margin-bottom: 0.45rem;
+    }
+    .ss-bar-track {
+      background: var(--gray100); border-radius: 4px; height: 7px;
+      overflow: hidden; margin-bottom: 0.3rem;
+    }
+    .ss-bar-fill {
+      height: 7px; border-radius: 4px;
+      background: linear-gradient(90deg, var(--indigo), var(--indigo-light));
+      transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .ss-val { font-size: 0.82rem; font-weight: 700; color: var(--gray800); }
 
     /* Summary */
-    .summary-text {
-      font-size: 0.9rem; color: #475569; line-height: 1.6;
-      background: #f8fafc; border-radius: 8px; padding: 0.75rem 1rem;
-      margin-bottom: 1.1rem;
+    .summary-box {
+      background: var(--gray50); border-radius: 10px;
+      padding: 0.9rem 1.1rem; margin-bottom: 1.1rem;
+      font-size: 0.88rem; color: var(--gray600); line-height: 1.65;
+      border-left: 3px solid var(--indigo);
     }
 
     /* Strengths / Gaps */
-    .sg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    @media (max-width: 520px) { .sg-grid { grid-template-columns: 1fr; } }
+    .sg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 1.1rem; }
+    @media (max-width: 520px) { .sg-row { grid-template-columns: 1fr; } }
 
-    .sg-box { border-radius: 8px; padding: 0.75rem 1rem; }
-    .sg-box h4 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; margin-bottom: 0.5rem; }
-    .strengths-box { background: #f0fdf4; }
-    .strengths-box h4 { color: #16a34a; }
-    .gaps-box { background: #fff7ed; }
-    .gaps-box h4 { color: #c2410c; }
-    .sg-box ul { list-style: none; }
-    .sg-box li { font-size: 0.83rem; color: #374151; padding: 0.2rem 0; display: flex; gap: 0.4rem; }
-    .sg-box li::before { content: "•"; flex-shrink: 0; }
-    .strengths-box li::before { color: #22c55e; }
-    .gaps-box li::before { color: #f97316; }
+    .sg-box { border-radius: 10px; padding: 1rem; }
+    .sg-box-header {
+      display: flex; align-items: center; gap: 0.45rem;
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.07em; margin-bottom: 0.65rem;
+    }
+    .sg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    .str-box  { background: var(--green-bg); }
+    .str-box .sg-box-header { color: var(--green); }
+    .str-dot  { background: var(--green); }
+
+    .gap-box  { background: var(--red-bg); }
+    .gap-box .sg-box-header { color: var(--red); }
+    .gap-dot  { background: var(--red); }
+
+    .sg-list { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+    .sg-list li {
+      font-size: 0.82rem; line-height: 1.5;
+      display: flex; gap: 0.5rem; align-items: flex-start;
+    }
+    .sg-list li::before { content: "–"; flex-shrink: 0; font-weight: 700; }
+    .str-box .sg-list li { color: #166534; }
+    .str-box .sg-list li::before { color: var(--green); }
+    .gap-box .sg-list li { color: #991b1b; }
+    .gap-box .sg-list li::before { color: var(--red); }
 
     /* Skills */
-    .skills-section { margin-top: 1rem; }
-    .skills-section h4 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 0.5rem; }
+    .skills-section { }
+    .skills-label {
+      font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em;
+      font-weight: 600; color: var(--gray400); margin-bottom: 0.55rem;
+    }
     .skills-wrap { display: flex; flex-wrap: wrap; gap: 0.4rem; }
     .skill-tag {
       background: #ede9fe; color: #5b21b6;
-      border-radius: 20px; padding: 0.2rem 0.65rem;
-      font-size: 0.78rem; font-weight: 500;
+      border-radius: 6px; padding: 0.22rem 0.6rem;
+      font-size: 0.76rem; font-weight: 600;
     }
 
-    /* Error candidate */
-    .candidate-error {
-      background: #fef2f2; border: 1px solid #fca5a5;
-      border-radius: 10px; padding: 1rem 1.25rem;
-      font-size: 0.88rem; color: #b91c1c; margin-bottom: 0.75rem;
+    /* Rewrite button */
+    .rewrite-row {
+      border-top: 1px solid var(--gray100);
+      padding: 1rem 1.4rem;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 0.75rem;
     }
-    .chevron { transition: transform 0.2s; font-size: 1.1rem; color: #94a3b8; }
-    .chevron.open { transform: rotate(180deg); }
+    .btn-rewrite {
+      display: inline-flex; align-items: center; gap: 0.45rem;
+      padding: 0.6rem 1.3rem; border-radius: 8px;
+      font-size: 0.88rem; font-weight: 700; cursor: pointer;
+      border: none; transition: background 0.2s, box-shadow 0.2s;
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: var(--white);
+      box-shadow: 0 3px 10px rgba(124,58,237,0.3);
+    }
+    .btn-rewrite:hover { box-shadow: 0 5px 16px rgba(124,58,237,0.45); }
+    .btn-rewrite:disabled { opacity: 0.6; cursor: default; box-shadow: none; }
+    .premium-badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      background: linear-gradient(135deg, #fef3c7, #fde68a);
+      color: #92400e; border-radius: 20px;
+      font-size: 0.7rem; font-weight: 800; letter-spacing: 0.05em;
+      padding: 0.2rem 0.65rem; text-transform: uppercase;
+    }
+    .rewrite-hint { font-size: 0.78rem; color: var(--gray400); }
+
+    /* ── REWRITE MODAL ── */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(3px); z-index: 200;
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 2rem 1rem; overflow-y: auto;
+    }
+    .modal {
+      background: var(--white); border-radius: 16px;
+      width: 100%; max-width: 720px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.25);
+      overflow: hidden; position: relative;
+    }
+    .modal-header {
+      background: linear-gradient(135deg, var(--navy) 0%, #1a1f35 100%);
+      padding: 1.4rem 1.6rem;
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+    }
+    .modal-header-left h3 { color: var(--white); font-size: 1.05rem; font-weight: 800; }
+    .modal-header-left p  { color: rgba(255,255,255,0.5); font-size: 0.8rem; margin-top: 0.2rem; }
+    .modal-close {
+      background: rgba(255,255,255,0.1); border: none; cursor: pointer;
+      color: var(--white); width: 30px; height: 30px; border-radius: 6px;
+      font-size: 1.1rem; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: background 0.2s;
+    }
+    .modal-close:hover { background: rgba(255,255,255,0.2); }
+
+    .modal-body { padding: 1.5rem 1.6rem; max-height: 70vh; overflow-y: auto; }
+
+    .modal-section { margin-bottom: 1.5rem; }
+    .modal-section-title {
+      font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em;
+      font-weight: 700; color: var(--indigo); margin-bottom: 0.6rem;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .modal-section-title::after {
+      content: ""; flex: 1; height: 1px; background: var(--gray200);
+    }
+
+    .modal-summary {
+      background: #f5f3ff; border-left: 3px solid var(--indigo);
+      border-radius: 8px; padding: 0.85rem 1rem;
+      font-size: 0.88rem; color: var(--gray600); line-height: 1.7;
+    }
+
+    .modal-exp-item { margin-bottom: 1.1rem; }
+    .modal-exp-header {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.25rem;
+    }
+    .modal-exp-title { font-size: 0.92rem; font-weight: 700; color: var(--gray800); }
+    .modal-exp-co    { font-size: 0.82rem; color: var(--indigo); font-weight: 600; }
+    .modal-exp-dates { font-size: 0.78rem; color: var(--gray400); }
+    .modal-bullets { list-style: none; padding-left: 0; }
+    .modal-bullets li {
+      font-size: 0.85rem; color: var(--gray600); padding: 0.22rem 0;
+      display: flex; gap: 0.5rem; line-height: 1.5;
+    }
+    .modal-bullets li::before { content: "▸"; color: var(--indigo); flex-shrink: 0; }
+
+    .modal-skills-wrap { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .modal-skill {
+      background: #ede9fe; color: #5b21b6;
+      border-radius: 6px; padding: 0.22rem 0.6rem;
+      font-size: 0.78rem; font-weight: 600;
+    }
+
+    .kw-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .kw-chip {
+      background: #dcfce7; color: #166534;
+      border-radius: 6px; padding: 0.22rem 0.6rem;
+      font-size: 0.76rem; font-weight: 600;
+    }
+
+    .modal-actions {
+      padding: 1rem 1.6rem; border-top: 1px solid var(--gray100);
+      display: flex; gap: 0.75rem; flex-wrap: wrap;
+    }
+    .btn-copy, .btn-download {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.6rem 1.2rem; border-radius: 8px;
+      font-size: 0.875rem; font-weight: 600; cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-copy {
+      background: var(--indigo); color: var(--white); border: none;
+    }
+    .btn-copy:hover { background: #4338ca; }
+    .btn-download {
+      background: var(--white); color: var(--gray800);
+      border: 1.5px solid var(--gray200);
+    }
+    .btn-download:hover { background: var(--gray50); }
+
+    /* Upgrade prompt inside modal */
+    .upgrade-prompt {
+      padding: 2.5rem 1.5rem; text-align: center;
+    }
+    .upgrade-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+    .upgrade-prompt h3 { font-size: 1.05rem; font-weight: 800; margin-bottom: 0.5rem; }
+    .upgrade-prompt p  { font-size: 0.88rem; color: var(--gray400); margin-bottom: 1.5rem; line-height: 1.6; }
+    .btn-upgrade {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.75rem 1.8rem; background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: var(--white); border: none; border-radius: 10px;
+      font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      box-shadow: 0 4px 14px rgba(124,58,237,0.35);
+      transition: box-shadow 0.2s;
+    }
+    .btn-upgrade:hover { box-shadow: 0 6px 20px rgba(124,58,237,0.5); }
+
+    /* Rewrite loading */
+    .rewrite-loading { padding: 2.5rem; text-align: center; }
+    .rewrite-loading p { font-size: 0.88rem; color: var(--gray400); margin-top: 1rem; }
+
+    /* Error candidate row */
+    .cand-error {
+      background: var(--white); border: 1px solid #fca5a5;
+      border-radius: var(--radius); padding: 1rem 1.4rem;
+      display: flex; align-items: center; gap: 0.6rem;
+      font-size: 0.88rem; color: var(--red); margin-bottom: 0.85rem;
+    }
+
+    /* ── PRICING ── */
+    .pricing-section {
+      background: var(--white);
+      border-top: 1px solid var(--gray200);
+      padding: 5rem 1.5rem;
+    }
+    .pricing-inner { max-width: 960px; margin: 0 auto; }
+    .pricing-eyebrow {
+      text-align: center; font-size: 0.78rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--indigo); margin-bottom: 0.6rem;
+    }
+    .pricing-heading {
+      text-align: center; font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 800; letter-spacing: -0.03em;
+      color: var(--navy); margin-bottom: 0.6rem;
+    }
+    .pricing-sub {
+      text-align: center; font-size: 0.95rem; color: var(--gray400);
+      max-width: 440px; margin: 0 auto 3rem; line-height: 1.6;
+    }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+      align-items: start;
+    }
+    @media (max-width: 700px) { .pricing-grid { grid-template-columns: 1fr; max-width: 360px; margin: 0 auto; } }
+
+    .pricing-card {
+      border: 1.5px solid var(--gray200);
+      border-radius: 16px; padding: 2rem 1.6rem;
+      position: relative; background: var(--white);
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .pricing-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.1); transform: translateY(-2px); }
+    .pricing-card.popular {
+      border-color: var(--indigo);
+      box-shadow: 0 4px 24px rgba(79,70,229,0.18);
+    }
+    .popular-badge {
+      position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+      background: var(--indigo); color: var(--white);
+      font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em;
+      text-transform: uppercase; padding: 0.25rem 0.9rem; border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    .plan-name {
+      font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--gray400); margin-bottom: 0.85rem;
+    }
+    .plan-price {
+      display: flex; align-items: flex-end; gap: 0.2rem;
+      margin-bottom: 0.35rem;
+    }
+    .plan-price-dollar { font-size: 1.5rem; font-weight: 700; color: var(--gray800); line-height: 1; align-self: flex-start; margin-top: 6px; }
+    .plan-price-num { font-size: 3rem; font-weight: 800; letter-spacing: -0.04em; color: var(--navy); line-height: 1; }
+    .plan-price-free { font-size: 2.6rem; font-weight: 800; letter-spacing: -0.04em; color: var(--navy); line-height: 1; }
+    .plan-tagline { font-size: 0.85rem; color: var(--gray400); margin-bottom: 1.5rem; }
+
+    .plan-divider { border: none; border-top: 1px solid var(--gray200); margin: 1.25rem 0; }
+
+    .plan-features { list-style: none; display: flex; flex-direction: column; gap: 0.65rem; margin-bottom: 1.75rem; }
+    .plan-feature {
+      display: flex; align-items: flex-start; gap: 0.55rem;
+      font-size: 0.86rem; color: var(--gray600); line-height: 1.4;
+    }
+    .feat-check { color: var(--green); font-size: 0.9rem; flex-shrink: 0; margin-top: 1px; }
+    .feat-x { color: var(--gray400); font-size: 0.9rem; flex-shrink: 0; margin-top: 1px; }
+    .feat-dim { color: var(--gray400); }
+
+    .plan-btn {
+      display: block; width: 100%; padding: 0.78rem;
+      border-radius: 10px; font-size: 0.95rem; font-weight: 700;
+      cursor: pointer; border: none; text-align: center;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .plan-btn-outline {
+      background: var(--white); color: var(--indigo);
+      border: 1.5px solid var(--indigo);
+    }
+    .plan-btn-outline:hover { background: #eef2ff; }
+    .plan-btn-filled {
+      background: var(--indigo); color: var(--white);
+      box-shadow: 0 4px 14px rgba(79,70,229,0.3);
+    }
+    .plan-btn-filled:hover { background: #4338ca; box-shadow: 0 6px 20px rgba(79,70,229,0.4); }
+
+    .pricing-section-label {
+      display: flex; align-items: center; gap: 0.65rem;
+      font-size: 0.88rem; font-weight: 700; color: var(--gray800);
+      margin-bottom: 1.1rem;
+    }
+    .rewrite-label-badge {
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: var(--white); font-size: 0.68rem; font-weight: 800;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 0.18rem 0.6rem; border-radius: 20px;
+    }
+    .pricing-rewrite-desc {
+      font-size: 0.85rem; color: var(--gray400); line-height: 1.65;
+      max-width: 580px; margin-bottom: 1.4rem;
+    }
+
+    .pricing-divider {
+      display: flex; align-items: center; gap: 1rem;
+      margin: 2.5rem 0 2rem; color: var(--gray400); font-size: 0.8rem; font-weight: 600;
+    }
+    .pricing-divider::before, .pricing-divider::after {
+      content: ""; flex: 1; height: 1px; background: var(--gray200);
+    }
+
+    .pricing-grid-2 {
+      grid-template-columns: repeat(2, 1fr);
+      max-width: 640px;
+    }
+    @media (max-width: 560px) { .pricing-grid-2 { grid-template-columns: 1fr; } }
+
+    .rewrite-card { border-color: #ddd6fe; }
+    .popular-rewrite { border-color: #7c3aed; box-shadow: 0 4px 24px rgba(124,58,237,0.18); }
+    .popular-badge-purple { background: linear-gradient(135deg, #7c3aed, #4f46e5); }
+
+    .plan-btn-rewrite {
+      background: var(--white); color: #7c3aed;
+      border: 1.5px solid #7c3aed;
+    }
+    .plan-btn-rewrite:hover { background: #f5f3ff; }
+    .plan-btn-rewrite-filled {
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: var(--white); border: none;
+      box-shadow: 0 4px 14px rgba(124,58,237,0.3);
+    }
+    .plan-btn-rewrite-filled:hover { box-shadow: 0 6px 20px rgba(124,58,237,0.45); }
+
+    .pricing-note {
+      text-align: center; margin-top: 2rem;
+      font-size: 0.8rem; color: var(--gray400);
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center; padding: 2.5rem 1rem;
+      font-size: 0.78rem; color: var(--gray400);
+      border-top: 1px solid var(--gray200); margin-top: 3rem;
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Resume Matcher</h1>
-    <p>Upload resumes and a job description — get ranked candidates with AI-powered analysis.</p>
-  </header>
-  <div id="root"></div>
 
-  <script type="text/babel">{% raw %}
-    const { useState, useRef, useCallback } = React;
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">Resume<span>Match</span></div>
+  <div class="nav-links">
+    <a href="#">How it works</a>
+    <a href="#pricing">Pricing</a>
+  </div>
+</nav>
 
-    function ScoreCircle({ score }) {
-      const cls = score >= 75 ? "score-high" : score >= 50 ? "score-medium" : "score-low";
-      return (
-        <div className={`score-circle ${cls}`}>{score}</div>
-      );
-    }
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">✦ AI-Powered · Instant Results</div>
+  <h1>Score Your Resume Against<br/><em>Any Job Description</em></h1>
+  <p>Paste a job posting, upload your resume, and get an instant match score with specific strengths, gaps, and feedback.</p>
+  <div class="hero-steps">
+    <div class="hero-step"><div class="hero-step-num">1</div> Upload resume(s)</div>
+    <div class="hero-step"><div class="hero-step-num">2</div> Paste job description</div>
+    <div class="hero-step"><div class="hero-step-num">3</div> Get your score</div>
+  </div>
+</div>
 
-    function SubScore({ label, value }) {
-      return (
-        <div className="subscore-item">
-          <div className="subscore-label">{label}</div>
-          <div className="subscore-bar-wrap">
-            <div className="subscore-bar" style={{ width: `${value}%` }} />
-          </div>
-          <div className="subscore-value">{value}</div>
+<div id="root"></div>
+
+<!-- PRICING -->
+<section class="pricing-section" id="pricing">
+  <div class="pricing-inner">
+    <div class="pricing-eyebrow">Pricing</div>
+    <h2 class="pricing-heading">Simple, transparent pricing</h2>
+    <p class="pricing-sub">Start free. Only pay when you need more scans. No subscription, no surprises.</p>
+
+    <!-- Section label -->
+    <div class="pricing-section-label">
+      <span>📊 Resume Scanning</span>
+    </div>
+
+    <div class="pricing-grid" style="margin-bottom: 1rem;">
+
+      <!-- Free -->
+      <div class="pricing-card">
+        <div class="plan-name">Starter</div>
+        <div class="plan-price">
+          <span class="plan-price-free">Free</span>
         </div>
-      );
+        <div class="plan-tagline">Your first scan, on us.</div>
+        <hr class="plan-divider"/>
+        <ul class="plan-features">
+          <li class="plan-feature"><span class="feat-check">✓</span> 1 resume scan</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> AI match score &amp; breakdown</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> Strengths &amp; gaps analysis</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> Skills extraction</li>
+          <li class="plan-feature feat-dim"><span class="feat-x">✗</span> Bulk resume ranking</li>
+          <li class="plan-feature feat-dim"><span class="feat-x">✗</span> Priority processing</li>
+        </ul>
+        <button class="plan-btn plan-btn-outline" onclick="document.getElementById('root').scrollIntoView({behavior:'smooth'})">
+          Get started free
+        </button>
+      </div>
+
+      <!-- $7 / 10 resumes — POPULAR -->
+      <div class="pricing-card popular">
+        <div class="popular-badge">⚡ Most Popular</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-price">
+          <span class="plan-price-dollar">$</span>
+          <span class="plan-price-num">7</span>
+        </div>
+        <div class="plan-tagline">10 resume scans · $0.70 each</div>
+        <hr class="plan-divider"/>
+        <ul class="plan-features">
+          <li class="plan-feature"><span class="feat-check">✓</span> 10 resume scans</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> AI match score &amp; breakdown</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> Strengths &amp; gaps analysis</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> Skills extraction</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> Bulk resume ranking</li>
+          <li class="plan-feature feat-dim"><span class="feat-x">✗</span> Priority processing</li>
+        </ul>
+        <button class="plan-btn plan-btn-filled">
+          Get Pro — $7
+        </button>
+      </div>
+
+      <!-- $10 / 15 resumes -->
+      <div class="pricing-card">
+        <div class="plan-name">Team</div>
+        <div class="plan-price">
+          <span class="plan-price-dollar">$</span>
+          <span class="plan-price-num">10</span>
+        </div>
+        <div class="plan-tagline">15 resume scans · $0.67 each</div>
+        <hr class="plan-divider"/>
+        <ul class="plan-features">
+          <li class="plan-feature"><span class="feat-check">✓</span> 15 resume scans</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> AI match score &amp; breakdown</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> Strengths &amp; gaps analysis</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> Skills extraction</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> Bulk resume ranking</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> Priority processing</li>
+        </ul>
+        <button class="plan-btn plan-btn-outline">
+          Get Team — $10
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Divider -->
+    <div class="pricing-divider">
+      <span>or add AI rewriting</span>
+    </div>
+
+    <!-- Section label -->
+    <div class="pricing-section-label">
+      <span>✨ AI Resume Rewriting</span>
+      <span class="rewrite-label-badge">Premium Add-on</span>
+    </div>
+    <p class="pricing-rewrite-desc">
+      Our AI rewrites your resume bullet points, summary, and skill ordering to directly target a specific job description — without fabricating anything. Every word stays truthful, just sharper.
+    </p>
+
+    <div class="pricing-grid pricing-grid-2">
+
+      <!-- $10 / 1 rewrite -->
+      <div class="pricing-card rewrite-card">
+        <div class="plan-name">Single Rewrite</div>
+        <div class="plan-price">
+          <span class="plan-price-dollar">$</span>
+          <span class="plan-price-num">10</span>
+        </div>
+        <div class="plan-tagline">1 AI-rewritten resume</div>
+        <hr class="plan-divider"/>
+        <ul class="plan-features">
+          <li class="plan-feature"><span class="feat-check">✓</span> 1 resume rewrite</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> Tailored summary &amp; bullets</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> Skills reordered by relevance</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> Keywords highlighted</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> Copy &amp; download output</li>
+        </ul>
+        <button class="plan-btn plan-btn-rewrite"
+          onclick="window.dispatchEvent(new CustomEvent('openStandaloneRewrite', {detail:{credits:1}}))">
+          Get 1 Rewrite — $10
+        </button>
+      </div>
+
+      <!-- $20 / 3 rewrites — BEST VALUE -->
+      <div class="pricing-card rewrite-card popular-rewrite">
+        <div class="popular-badge popular-badge-purple">💎 Best Value</div>
+        <div class="plan-name">Bundle Rewrite</div>
+        <div class="plan-price">
+          <span class="plan-price-dollar">$</span>
+          <span class="plan-price-num">20</span>
+        </div>
+        <div class="plan-tagline">3 AI-rewritten resumes · $6.67 each</div>
+        <hr class="plan-divider"/>
+        <ul class="plan-features">
+          <li class="plan-feature"><span class="feat-check">✓</span> 3 resume rewrites</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> Tailored summary &amp; bullets</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> Skills reordered by relevance</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> Keywords highlighted</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> Copy &amp; download output</li>
+          <li class="plan-feature"><span class="feat-check">✓</span> <strong>Save 33% vs. single</strong></li>
+        </ul>
+        <button class="plan-btn plan-btn-rewrite-filled"
+          onclick="window.dispatchEvent(new CustomEvent('openStandaloneRewrite', {detail:{credits:3}}))">
+          Get 3 Rewrites — $20
+        </button>
+      </div>
+
+    </div>
+
+    <p class="pricing-note">All plans are one-time purchases · No auto-renewal · Credits never expire</p>
+  </div>
+</section>
+
+<footer>
+  Powered by OpenAI · Built with Flask &amp; React · Results are AI-generated estimates.
+</footer>
+
+<script type="text/babel">{% raw %}
+  const { useState, useRef, useCallback, useEffect, useContext, createContext } = React;
+
+  function generateResumePDF(r) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "pt", format: "letter" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 50;
+    const contentW = pageW - margin * 2;
+    let y = margin;
+
+    const checkPage = (needed = 20) => {
+      if (y + needed > pageH - margin) { doc.addPage(); y = margin; }
+    };
+
+    const rule = () => {
+      checkPage(10);
+      doc.setDrawColor(226, 232, 240);
+      doc.line(margin, y, pageW - margin, y);
+      y += 8;
+    };
+
+    const sectionTitle = (title) => {
+      y += 8;
+      checkPage(25);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(79, 70, 229);
+      doc.text(title.toUpperCase(), margin, y);
+      y += 5;
+      rule();
+    };
+
+    // Name
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text(r.name || "", margin, y);
+    y += 26;
+
+    // Contact
+    const contact = [r.email, r.phone, r.location].filter(Boolean).join("  |  ");
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    doc.text(contact, margin, y);
+    y += 10;
+    rule();
+
+    // Summary
+    if (r.summary) {
+      sectionTitle("Professional Summary");
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(71, 85, 105);
+      const lines = doc.splitTextToSize(r.summary, contentW);
+      checkPage(lines.length * 14);
+      doc.text(lines, margin, y);
+      y += lines.length * 14;
     }
 
-    function CandidateCard({ candidate, rank }) {
-      const [open, setOpen] = useState(rank === 1);
+    // Experience
+    if (r.work_experience?.length) {
+      sectionTitle("Work Experience");
+      r.work_experience.forEach(exp => {
+        checkPage(50);
+        doc.setFontSize(10.5);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(30, 41, 59);
+        doc.text(exp.title || "", margin, y);
+        if (exp.dates) {
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(148, 163, 184);
+          const dw = doc.getTextWidth(exp.dates);
+          doc.text(exp.dates, pageW - margin - dw, y);
+        }
+        y += 14;
+        doc.setFontSize(9.5);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(79, 70, 229);
+        doc.text(exp.company || "", margin, y);
+        y += 14;
+        (exp.bullets || []).forEach(b => {
+          const blines = doc.splitTextToSize(`•  ${b}`, contentW - 12);
+          checkPage(blines.length * 13);
+          doc.setFontSize(9.5);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(71, 85, 105);
+          doc.text(blines, margin + 6, y);
+          y += blines.length * 13;
+        });
+        y += 6;
+      });
+    }
 
-      if (candidate.error) {
-        return (
-          <div className="candidate-error">
-            <strong>{candidate.filename}</strong> — {candidate.error}
-          </div>
-        );
+    // Education
+    if (r.education?.length) {
+      sectionTitle("Education");
+      r.education.forEach(e => {
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(71, 85, 105);
+        const lines = doc.splitTextToSize(e, contentW);
+        checkPage(lines.length * 14);
+        doc.text(lines, margin, y);
+        y += lines.length * 14 + 2;
+      });
+    }
+
+    // Skills
+    if (r.skills?.length) {
+      sectionTitle("Skills");
+      doc.setFontSize(9.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(71, 85, 105);
+      const slines = doc.splitTextToSize(r.skills.join("  •  "), contentW);
+      checkPage(slines.length * 13);
+      doc.text(slines, margin, y);
+      y += slines.length * 13;
+    }
+
+    // Keywords added
+    if (r.keywords_added?.length) {
+      sectionTitle("Keywords Added");
+      doc.setFontSize(9.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(22, 101, 52);
+      const klines = doc.splitTextToSize(r.keywords_added.join(", "), contentW);
+      checkPage(klines.length * 13);
+      doc.text(klines, margin, y);
+    }
+
+    doc.save(`${(r.name || "resume").replace(/\s+/g, "_")}_rewritten.pdf`);
+  }
+
+  // Simple plan context — "free" | "pro" | "team"
+  // In a real app this would come from auth/payment; here it's a demo toggle.
+  const PlanContext = createContext("free");
+
+  /* ── Rewrite Modal ── */
+  function RewriteModal({ candidate, jobDesc, onClose }) {
+    const plan = useContext(PlanContext);
+    const isPremium = plan !== "free";
+    const [loading, setLoading] = useState(false);
+    const [rewritten, setRewritten] = useState(null);
+    const [err, setErr] = useState("");
+    const [copied, setCopied] = useState(false);
+
+    const doRewrite = async () => {
+      setLoading(true); setErr("");
+      try {
+        const resp = await fetch("/api/rewrite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            resume_data: candidate.resume_data,
+            job_description: jobDesc,
+          }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) { setErr(data.error || "Rewrite failed."); return; }
+        setRewritten(data.rewritten);
+      } catch {
+        setErr("Network error.");
+      } finally {
+        setLoading(false);
       }
+    };
 
-      const m = candidate.match;
-      const rankClass = rank <= 3 ? `rank-${rank}` : "rank-other";
+    // Auto-trigger rewrite for premium users on open
+    useEffect(() => { if (isPremium) doRewrite(); }, []);
 
-      return (
-        <div className="candidate-card">
-          <div className="candidate-header" onClick={() => setOpen(o => !o)}>
-            <div className="candidate-left">
-              <div className={`rank-badge ${rankClass}`}>#{rank}</div>
-              <div>
-                <div className="candidate-name">{candidate.name}</div>
-                <div className="candidate-meta">
-                  {[candidate.email, candidate.location, candidate.years_of_experience ? `${candidate.years_of_experience} yrs exp` : null]
-                    .filter(Boolean).join(" · ")}
-                </div>
-              </div>
+    const toPlainText = (r) => {
+      let out = `${r.name}\n${r.email} | ${r.phone} | ${r.location}\n\n`;
+      out += `SUMMARY\n${r.summary}\n\n`;
+      out += `EXPERIENCE\n`;
+      r.work_experience.forEach(e => {
+        out += `${e.title} — ${e.company} (${e.dates})\n`;
+        e.bullets.forEach(b => { out += `  • ${b}\n`; });
+        out += "\n";
+      });
+      out += `EDUCATION\n${r.education.join("\n")}\n\n`;
+      out += `SKILLS\n${r.skills.join(", ")}\n`;
+      return out;
+    };
+
+    const handleCopy = () => {
+      if (!rewritten) return;
+      navigator.clipboard.writeText(toPlainText(rewritten));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleDownload = () => {
+      if (!rewritten) return;
+      generateResumePDF(rewritten);
+    };
+
+    return (
+      <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+        <div className="modal">
+          <div className="modal-header">
+            <div className="modal-header-left">
+              <h3>✨ AI-Rewritten Resume</h3>
+              <p>{candidate.name} — tailored for this job description</p>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-              <ScoreCircle score={m.overall_score} />
-              <span className={`chevron ${open ? "open" : ""}`}>▾</span>
-            </div>
+            <button className="modal-close" onClick={onClose}>✕</button>
           </div>
 
-          {open && (
-            <div className="candidate-body">
-              <div className="subscores">
-                <SubScore label="Skills" value={m.skills_match} />
-                <SubScore label="Experience" value={m.experience_match} />
-                <SubScore label="Education" value={m.education_match} />
-              </div>
-
-              <div className="summary-text">{m.summary}</div>
-
-              <div className="sg-grid">
-                <div className="sg-box strengths-box">
-                  <h4>Strengths</h4>
-                  <ul>{m.strengths.map((s, i) => <li key={i}>{s}</li>)}</ul>
-                </div>
-                <div className="sg-box gaps-box">
-                  <h4>Gaps</h4>
-                  <ul>{m.gaps.map((g, i) => <li key={i}>{g}</li>)}</ul>
-                </div>
-              </div>
-
-              {candidate.skills && candidate.skills.length > 0 && (
-                <div className="skills-section">
-                  <h4>Skills on Resume</h4>
-                  <div className="skills-wrap">
-                    {candidate.skills.slice(0, 20).map((s, i) => (
-                      <span key={i} className="skill-tag">{s}</span>
-                    ))}
-                    {candidate.skills.length > 20 && (
-                      <span className="skill-tag">+{candidate.skills.length - 20} more</span>
-                    )}
-                  </div>
-                </div>
-              )}
+          {!isPremium && (
+            <div className="upgrade-prompt">
+              <div className="upgrade-icon">🔒</div>
+              <h3>Premium Feature</h3>
+              <p>AI resume rewriting is available on the Pro ($7) and Team ($10) plans.<br/>
+                Upgrade to get your resume reworded and reformatted to match this job description.</p>
+              <button className="btn-upgrade" onClick={() => { onClose(); document.getElementById("pricing").scrollIntoView({ behavior: "smooth" }); }}>
+                View Pricing Plans →
+              </button>
             </div>
           )}
+
+          {isPremium && loading && (
+            <div className="rewrite-loading">
+              <div className="spinner" style={{ margin: "0 auto" }} />
+              <p>Rewriting your resume with AI — this takes about 15 seconds…</p>
+            </div>
+          )}
+
+          {isPremium && err && (
+            <div style={{ padding: "1.5rem" }}>
+              <div className="error-bar">⚠ {err}</div>
+              <button className="btn-rewrite" onClick={doRewrite}>Try again</button>
+            </div>
+          )}
+
+          {isPremium && rewritten && !loading && (
+            <>
+              <div className="modal-body">
+
+                {rewritten.keywords_added?.length > 0 && (
+                  <div className="modal-section">
+                    <div className="modal-section-title">Keywords Added</div>
+                    <div className="kw-chips">
+                      {rewritten.keywords_added.map((k, i) => <span key={i} className="kw-chip">{k}</span>)}
+                    </div>
+                  </div>
+                )}
+
+                <div className="modal-section">
+                  <div className="modal-section-title">Professional Summary</div>
+                  <div className="modal-summary">{rewritten.summary}</div>
+                </div>
+
+                <div className="modal-section">
+                  <div className="modal-section-title">Work Experience</div>
+                  {rewritten.work_experience.map((exp, i) => (
+                    <div key={i} className="modal-exp-item">
+                      <div className="modal-exp-header">
+                        <div>
+                          <span className="modal-exp-title">{exp.title}</span>
+                          {" · "}
+                          <span className="modal-exp-co">{exp.company}</span>
+                        </div>
+                        <span className="modal-exp-dates">{exp.dates}</span>
+                      </div>
+                      <ul className="modal-bullets">
+                        {exp.bullets.map((b, j) => <li key={j}>{b}</li>)}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+
+                {rewritten.education?.length > 0 && (
+                  <div className="modal-section">
+                    <div className="modal-section-title">Education</div>
+                    {rewritten.education.map((e, i) => (
+                      <div key={i} style={{ fontSize: "0.88rem", color: "var(--gray600)", marginBottom: "0.3rem" }}>{e}</div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="modal-section">
+                  <div className="modal-section-title">Skills (Reordered by Relevance)</div>
+                  <div className="modal-skills-wrap">
+                    {rewritten.skills.map((s, i) => <span key={i} className="modal-skill">{s}</span>)}
+                  </div>
+                </div>
+
+              </div>
+              <div className="modal-actions">
+                <button className="btn-copy" onClick={handleCopy}>
+                  {copied ? "✓ Copied!" : "📋 Copy to clipboard"}
+                </button>
+                <button className="btn-download" onClick={handleDownload}>
+                  ⬇ Download PDF
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Score donut ── */
+  function ScoreDonut({ score }) {
+    const r = 26, circ = 2 * Math.PI * r;
+    const offset = circ * (1 - score / 100);
+    const color = score >= 75 ? "#16a34a" : score >= 50 ? "#d97706" : "#dc2626";
+    const cls = score >= 75 ? "score-high-c" : score >= 50 ? "score-medium-c" : "score-low-c";
+    return (
+      <div className="score-donut">
+        <svg width="64" height="64" viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r={r} fill="none" stroke="#f1f5f9" strokeWidth="5"/>
+          <circle cx="32" cy="32" r={r} fill="none" stroke={color} strokeWidth="5"
+            strokeDasharray={circ} strokeDashoffset={offset}
+            strokeLinecap="round" style={{ transition: "stroke-dashoffset 0.8s ease" }}/>
+        </svg>
+        <div className="score-donut-val">
+          <span className={`score-num ${cls}`}>{score}</span>
+          <span className="score-label-small">SCORE</span>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Sub-score bar ── */
+  function SubScore({ label, value }) {
+    return (
+      <div className="ss-item">
+        <div className="ss-label">{label}</div>
+        <div className="ss-bar-track">
+          <div className="ss-bar-fill" style={{ width: `${value}%` }} />
+        </div>
+        <div className="ss-val">{value} / 100</div>
+      </div>
+    );
+  }
+
+  /* ── Candidate card ── */
+  function CandidateCard({ c, rank, jobDesc }) {
+    const [open, setOpen] = useState(rank === 1);
+    const [showRewrite, setShowRewrite] = useState(false);
+
+    if (c.error) {
+      return (
+        <div className="cand-error">
+          <span>⚠</span>
+          <span><strong>{c.filename}</strong> — {c.error}</span>
         </div>
       );
     }
 
-    function App() {
-      const [files, setFiles] = useState([]);
-      const [jobDesc, setJobDesc] = useState("");
-      const [loading, setLoading] = useState(false);
-      const [results, setResults] = useState(null);
-      const [error, setError] = useState("");
-      const [dragOver, setDragOver] = useState(false);
-      const inputRef = useRef();
+    const m = c.match;
+    const barClass = m.overall_score >= 75 ? "bar-high" : m.overall_score >= 50 ? "bar-medium" : "bar-low";
+    const rankClass = rank === 1 ? "rank-1" : rank === 2 ? "rank-2" : rank === 3 ? "rank-3" : "rank-n";
 
-      const addFiles = useCallback((newFiles) => {
-        setFiles(prev => {
-          const existing = new Set(prev.map(f => f.name));
-          const filtered = Array.from(newFiles).filter(f => !existing.has(f.name));
-          return [...prev, ...filtered];
-        });
-      }, []);
+    return (
+      <div className="cand-card">
+        <div className={`cand-card-bar ${barClass}`} />
 
-      const removeFile = (name) => setFiles(f => f.filter(x => x.name !== name));
+        <div className="cand-header" onClick={() => setOpen(o => !o)}>
+          <div className={`rank ${rankClass}`}>#{rank}</div>
 
-      const handleDrop = (e) => {
-        e.preventDefault();
-        setDragOver(false);
-        addFiles(e.dataTransfer.files);
-      };
+          <div className="cand-info">
+            <div className="cand-name">{c.name}</div>
+            <div className="cand-meta">
+              {c.email    && <span className="cand-meta-item">✉ {c.email}</span>}
+              {c.location && <span className="cand-meta-item">📍 {c.location}</span>}
+              {c.years_of_experience > 0 && (
+                <span className="cand-meta-item">💼 {c.years_of_experience} yrs exp</span>
+              )}
+            </div>
+          </div>
 
-      const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError("");
-        setResults(null);
+          <ScoreDonut score={m.overall_score} />
+          <span className={`cand-chevron ${open ? "open" : ""}`}>▾</span>
+        </div>
 
-        if (files.length === 0) { setError("Upload at least one resume."); return; }
-        if (!jobDesc.trim())    { setError("Enter a job description."); return; }
+        {open && (
+          <div className="cand-body">
+            <div className="subscores-row">
+              <SubScore label="Skills Match"      value={m.skills_match} />
+              <SubScore label="Experience Match"  value={m.experience_match} />
+              <SubScore label="Education Match"   value={m.education_match} />
+            </div>
 
-        setLoading(true);
-        try {
-          const form = new FormData();
-          files.forEach(f => form.append("resumes", f));
-          form.append("job_description", jobDesc);
+            <div className="summary-box">{m.summary}</div>
 
-          const resp = await fetch("/api/match", { method: "POST", body: form });
-          const data = await resp.json();
-          if (!resp.ok) { setError(data.error || "Something went wrong."); return; }
-          setResults(data.results);
-        } catch (err) {
-          setError("Network error — is the server running?");
-        } finally {
-          setLoading(false);
-        }
-      };
+            <div className="sg-row">
+              <div className="sg-box str-box">
+                <div className="sg-box-header">
+                  <div className="sg-dot str-dot" /> Strengths
+                </div>
+                <ul className="sg-list">
+                  {m.strengths.map((s, i) => <li key={i}>{s}</li>)}
+                </ul>
+              </div>
+              <div className="sg-box gap-box">
+                <div className="sg-box-header">
+                  <div className="sg-dot gap-dot" /> Gaps
+                </div>
+                <ul className="sg-list">
+                  {m.gaps.map((g, i) => <li key={i}>{g}</li>)}
+                </ul>
+              </div>
+            </div>
 
-      return (
-        <div className="container">
+            {c.skills && c.skills.length > 0 && (
+              <div className="skills-section">
+                <div className="skills-label">Skills on Resume</div>
+                <div className="skills-wrap">
+                  {c.skills.slice(0, 24).map((s, i) => (
+                    <span key={i} className="skill-tag">{s}</span>
+                  ))}
+                  {c.skills.length > 24 && (
+                    <span className="skill-tag">+{c.skills.length - 24} more</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
-          <form onSubmit={handleSubmit}>
-            {/* Upload */}
-            <div className="card">
-              <h2>Resumes</h2>
+        {open && (
+          <div className="rewrite-row">
+            <span className="rewrite-hint">Want a better score? Let AI tailor this resume to the job.</span>
+            <button className="btn-rewrite" onClick={() => setShowRewrite(true)}>
+              ✨ Rewrite Resume
+              <span className="premium-badge">⭐ Premium</span>
+            </button>
+          </div>
+        )}
+
+        {showRewrite && (
+          <RewriteModal
+            candidate={c}
+            jobDesc={jobDesc}
+            onClose={() => setShowRewrite(false)}
+          />
+        )}
+      </div>
+    );
+  }
+
+  /* ── Loading state ── */
+  function LoadingCard({ count }) {
+    const [step, setStep] = useState(0);
+    const steps = [
+      "Extracting text from resume(s)…",
+      "Parsing structured fields with AI…",
+      "Scoring against job description…",
+      "Ranking candidates…",
+    ];
+    useEffect(() => {
+      const t = setInterval(() => setStep(s => Math.min(s + 1, steps.length - 1)), 4000);
+      return () => clearInterval(t);
+    }, []);
+    return (
+      <div className="loading-wrap">
+        <div className="spinner" />
+        <h3>Analyzing {count} resume{count !== 1 ? "s" : ""}…</h3>
+        <p>This usually takes 15–30 seconds.</p>
+        <div className="loading-steps">
+          {steps.map((s, i) => (
+            <div key={i} className={`loading-step ${i <= step ? "active" : ""}`}>
+              <div className="loading-step-dot" />
+              {s}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Standalone Rewrite Modal (from pricing buttons) ── */
+  function StandaloneRewriteModal({ credits, onClose }) {
+    const fileRef  = useRef();
+    const [file, setFile]         = useState(null);
+    const [jobDesc, setJobDesc]   = useState("");
+    const [dragOver, setDragOver] = useState(false);
+    const [loading, setLoading]   = useState(false);
+    const [rewritten, setRewritten] = useState(null);
+    const [err, setErr]           = useState("");
+    const [copied, setCopied]     = useState(false);
+
+    const handleDrop = (e) => {
+      e.preventDefault(); setDragOver(false);
+      const f = e.dataTransfer.files[0];
+      if (f) setFile(f);
+    };
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      if (!file)           { setErr("Please upload a resume file."); return; }
+      if (!jobDesc.trim()) { setErr("Please paste a job description."); return; }
+      setErr(""); setLoading(true); setRewritten(null);
+
+      try {
+        const form = new FormData();
+        form.append("resume", file);
+        form.append("job_description", jobDesc);
+
+        const resp = await fetch("/api/rewrite-file", { method: "POST", body: form });
+        const data = await resp.json();
+        if (!resp.ok) { setErr(data.error || "Rewrite failed."); return; }
+        setRewritten(data.rewritten);
+      } catch {
+        setErr("Network error — is the server running?");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const toPlainText = (r) => {
+      let out = `${r.name}\n${r.email} | ${r.phone} | ${r.location}\n\n`;
+      out += `SUMMARY\n${r.summary}\n\n`;
+      out += `EXPERIENCE\n`;
+      r.work_experience.forEach(e => {
+        out += `${e.title} — ${e.company} (${e.dates})\n`;
+        e.bullets.forEach(b => { out += `  • ${b}\n`; });
+        out += "\n";
+      });
+      out += `EDUCATION\n${r.education.join("\n")}\n\n`;
+      out += `SKILLS\n${r.skills.join(", ")}\n`;
+      return out;
+    };
+
+    const handleCopy = () => {
+      navigator.clipboard.writeText(toPlainText(rewritten));
+      setCopied(true); setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleDownload = () => {
+      generateResumePDF(rewritten);
+    };
+
+    return (
+      <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+        <div className="modal">
+          <div className="modal-header" style={{ background: "linear-gradient(135deg, #4c1d95 0%, #3730a3 100%)" }}>
+            <div className="modal-header-left">
+              <h3>✨ AI Resume Rewriter</h3>
+              <p>{credits === 1 ? "Single Rewrite — $10" : "Bundle Rewrite — $20 · 3 credits"}</p>
+            </div>
+            <button className="modal-close" onClick={onClose}>✕</button>
+          </div>
+
+          {!rewritten ? (
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body" style={{ maxHeight: "none" }}>
+
+                {/* File upload */}
+                <div style={{ marginBottom: "1.25rem" }}>
+                  <div className="modal-section-title" style={{ marginBottom: "0.65rem" }}>Upload Resume</div>
+                  <div
+                    className={`upload-zone ${dragOver ? "drag-over" : ""}`}
+                    style={{ padding: "1.5rem 1rem" }}
+                    onClick={() => fileRef.current.click()}
+                    onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={handleDrop}
+                  >
+                    <input type="file" ref={fileRef} accept=".pdf,.docx,.doc,.txt,.rtf,.html"
+                      onChange={e => setFile(e.target.files[0] || null)} style={{ display: "none" }} />
+                    <div style={{ fontSize: "1.5rem", marginBottom: "0.4rem" }}>📄</div>
+                    {file
+                      ? <p style={{ color: "#5b21b6", fontWeight: 600 }}>{file.name}</p>
+                      : <p>Drag &amp; drop or <span>browse</span></p>
+                    }
+                    <p className="upload-zone-hint">PDF, DOCX, TXT, RTF, HTML</p>
+                  </div>
+                </div>
+
+                {/* Job description */}
+                <div style={{ marginBottom: "1rem" }}>
+                  <div className="modal-section-title" style={{ marginBottom: "0.65rem" }}>Job Description</div>
+                  <textarea
+                    placeholder="Paste the full job description here…"
+                    value={jobDesc}
+                    onChange={e => setJobDesc(e.target.value)}
+                    style={{ minHeight: "140px" }}
+                  />
+                </div>
+
+                {err && <div className="error-bar" style={{ marginBottom: "1rem" }}>⚠ {err}</div>}
+              </div>
+
+              <div className="modal-actions">
+                <button type="submit" className="btn-rewrite" style={{ fontSize: "0.95rem", padding: "0.7rem 1.6rem" }} disabled={loading}>
+                  {loading ? "Rewriting…" : "✨ Rewrite My Resume"}
+                </button>
+                {loading && <span style={{ fontSize: "0.8rem", color: "var(--gray400)", alignSelf: "center" }}>This takes about 15 seconds…</span>}
+              </div>
+            </form>
+          ) : (
+            <>
+              <div className="modal-body">
+                {rewritten.keywords_added?.length > 0 && (
+                  <div className="modal-section">
+                    <div className="modal-section-title">Keywords Added</div>
+                    <div className="kw-chips">
+                      {rewritten.keywords_added.map((k, i) => <span key={i} className="kw-chip">{k}</span>)}
+                    </div>
+                  </div>
+                )}
+                <div className="modal-section">
+                  <div className="modal-section-title">Professional Summary</div>
+                  <div className="modal-summary">{rewritten.summary}</div>
+                </div>
+                <div className="modal-section">
+                  <div className="modal-section-title">Work Experience</div>
+                  {rewritten.work_experience.map((exp, i) => (
+                    <div key={i} className="modal-exp-item">
+                      <div className="modal-exp-header">
+                        <div>
+                          <span className="modal-exp-title">{exp.title}</span>
+                          {" · "}<span className="modal-exp-co">{exp.company}</span>
+                        </div>
+                        <span className="modal-exp-dates">{exp.dates}</span>
+                      </div>
+                      <ul className="modal-bullets">
+                        {exp.bullets.map((b, j) => <li key={j}>{b}</li>)}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+                {rewritten.education?.length > 0 && (
+                  <div className="modal-section">
+                    <div className="modal-section-title">Education</div>
+                    {rewritten.education.map((e, i) => (
+                      <div key={i} style={{ fontSize: "0.88rem", color: "var(--gray600)", marginBottom: "0.3rem" }}>{e}</div>
+                    ))}
+                  </div>
+                )}
+                <div className="modal-section">
+                  <div className="modal-section-title">Skills (Reordered by Relevance)</div>
+                  <div className="modal-skills-wrap">
+                    {rewritten.skills.map((s, i) => <span key={i} className="modal-skill">{s}</span>)}
+                  </div>
+                </div>
+              </div>
+              <div className="modal-actions">
+                <button className="btn-copy" onClick={handleCopy}>
+                  {copied ? "✓ Copied!" : "📋 Copy to clipboard"}
+                </button>
+                <button className="btn-download" onClick={handleDownload}>⬇ Download PDF</button>
+                <button className="btn-download" onClick={() => setRewritten(null)}>↩ Rewrite another</button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  /* ── App ── */
+  function App() {
+    const [files, setFiles]       = useState([]);
+    const [jobDesc, setJobDesc]   = useState("");
+    const [loading, setLoading]   = useState(false);
+    const [results, setResults]   = useState(null);
+    const [error, setError]       = useState("");
+    const [dragOver, setDragOver] = useState(false);
+    const [plan, setPlan]             = useState("free");
+    const [standaloneRewrite, setStandaloneRewrite] = useState(null); // null | {credits}
+    const inputRef = useRef();
+
+    useEffect(() => {
+      const handler = (e) => setStandaloneRewrite({ credits: e.detail.credits });
+      window.addEventListener("openStandaloneRewrite", handler);
+      return () => window.removeEventListener("openStandaloneRewrite", handler);
+    }, []);
+
+    const addFiles = useCallback((incoming) => {
+      setFiles(prev => {
+        const existing = new Set(prev.map(f => f.name));
+        return [...prev, ...Array.from(incoming).filter(f => !existing.has(f.name))];
+      });
+    }, []);
+
+    const handleDrop = (e) => {
+      e.preventDefault(); setDragOver(false);
+      addFiles(e.dataTransfer.files);
+    };
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      setError(""); setResults(null);
+      if (!files.length)    { setError("Please upload at least one resume."); return; }
+      if (!jobDesc.trim())  { setError("Please paste a job description."); return; }
+
+      setLoading(true);
+      try {
+        const form = new FormData();
+        files.forEach(f => form.append("resumes", f));
+        form.append("job_description", jobDesc);
+
+        const resp = await fetch("/api/match", { method: "POST", body: form });
+        const data = await resp.json();
+        if (!resp.ok) { setError(data.error || "Something went wrong."); return; }
+        setResults(data.results);
+      } catch {
+        setError("Network error — is the server running?");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    return (
+      <div className="main">
+        <form onSubmit={handleSubmit}>
+          <div className="input-panel">
+
+            {/* Left: Resume upload */}
+            <div className="panel">
+              <div className="panel-header">
+                <div className="panel-icon panel-icon-purple">📄</div>
+                <div>
+                  <div className="panel-title">Your Resume</div>
+                  <div className="panel-subtitle">Upload one or more resume files</div>
+                </div>
+              </div>
+
               <div
                 className={`upload-zone ${dragOver ? "drag-over" : ""}`}
                 onClick={() => inputRef.current.click()}
@@ -386,77 +1625,97 @@
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleDrop}
               >
-                <input
-                  type="file"
-                  ref={inputRef}
-                  multiple
+                <input type="file" ref={inputRef} multiple
                   accept=".pdf,.docx,.doc,.txt,.rtf,.html"
-                  onChange={e => addFiles(e.target.files)}
-                />
-                <div className="upload-icon">📄</div>
-                <p>Drag & drop files here, or <span>browse</span></p>
-                <p style={{ fontSize: "0.78rem", marginTop: "0.3rem", color: "#94a3b8" }}>
-                  PDF, DOCX, TXT, RTF, HTML · Max 10 MB each
-                </p>
+                  onChange={e => addFiles(e.target.files)} />
+                <div className="upload-zone-icon">☁️</div>
+                <p>Drag & drop here, or <span>browse files</span></p>
+                <p className="upload-zone-hint">PDF, DOCX, TXT, RTF, HTML · Max 10 MB</p>
               </div>
 
               {files.length > 0 && (
-                <div className="file-list">
+                <div className="file-chips">
                   {files.map(f => (
                     <div key={f.name} className="file-chip">
-                      {f.name}
-                      <button type="button" onClick={() => removeFile(f.name)}>×</button>
+                      <span className="file-chip-name">{f.name}</span>
+                      <button type="button" className="file-chip-rm"
+                        onClick={() => setFiles(p => p.filter(x => x.name !== f.name))}>×</button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Job Description */}
-            <div className="card">
-              <h2>Job Description</h2>
+            {/* Right: Job description */}
+            <div className="panel">
+              <div className="panel-header">
+                <div className="panel-icon panel-icon-blue">📋</div>
+                <div>
+                  <div className="panel-title">Job Description</div>
+                  <div className="panel-subtitle">Paste the full posting for best results</div>
+                </div>
+              </div>
               <textarea
-                placeholder="Paste the full job description here — role, requirements, nice-to-haves..."
+                placeholder={"Paste the full job description here…\n\nInclude requirements, responsibilities, and nice-to-haves for the most accurate score."}
                 value={jobDesc}
                 onChange={e => setJobDesc(e.target.value)}
               />
             </div>
+          </div>
 
-            {error && <div className="error-box">{error}</div>}
+          {error && (
+            <div className="error-bar">⚠ {error}</div>
+          )}
 
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading}
-            >
-              {loading ? "Analyzing…" : `Analyze ${files.length > 0 ? `${files.length} Resume${files.length > 1 ? "s" : ""}` : "Resumes"}`}
+          <div className="submit-row">
+            <p className="submit-info">
+              {files.length > 0
+                ? <><strong>{files.length}</strong> resume{files.length !== 1 ? "s" : ""} ready · <strong>{jobDesc.trim().split(/\s+/).filter(Boolean).length}</strong> words in job description</>
+                : "Upload resumes and paste a job description to get started."
+              }
+            </p>
+            <button type="submit" className="btn-analyze" disabled={loading}>
+              {loading ? "Analyzing…" : "Get Match Score →"}
             </button>
-          </form>
+          </div>
+        </form>
 
-          {loading && (
-            <div className="spinner-wrap" style={{ marginTop: "2rem" }}>
-              <div className="spinner" />
-              <p>Parsing resumes and scoring candidates — this may take 15–30 seconds…</p>
-            </div>
-          )}
+        {loading && <LoadingCard count={files.length} />}
 
-          {results && !loading && (
-            <div style={{ marginTop: "2rem" }}>
-              <div className="results-header">
+        {standaloneRewrite && (
+          <StandaloneRewriteModal
+            credits={standaloneRewrite.credits}
+            onClose={() => setStandaloneRewrite(null)}
+          />
+        )}
+
+        {results && !loading && (
+          <PlanContext.Provider value={plan}>
+            <div>
+              <div className="results-header-row">
                 <h2>Results</h2>
-                <span className="results-count">{results.length} candidate{results.length !== 1 ? "s" : ""}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <span className="results-tag">{results.length} CANDIDATE{results.length !== 1 ? "S" : ""}</span>
+                  {/* Demo plan switcher — replace with real auth in production */}
+                  <select
+                    value={plan}
+                    onChange={e => setPlan(e.target.value)}
+                    style={{ fontSize: "0.78rem", padding: "0.25rem 0.5rem", borderRadius: "6px", border: "1px solid var(--gray200)", color: "var(--gray600)", background: "var(--white)", cursor: "pointer" }}
+                  >
+                    <option value="free">Demo: Free (no rewriting)</option>
+                    <option value="pro">Demo: Rewrite unlocked ($10/$20)</option>
+                  </select>
+                </div>
               </div>
-              {results.map((c, i) => (
-                <CandidateCard key={i} candidate={c} rank={i + 1} />
-              ))}
+              {results.map((c, i) => <CandidateCard key={i} c={c} rank={i + 1} jobDesc={jobDesc} />)}
             </div>
-          )}
+          </PlanContext.Provider>
+        )}
+      </div>
+    );
+  }
 
-        </div>
-      );
-    }
-
-    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
-  {% endraw %}</script>
+  ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+{% endraw %}</script>
 </body>
 </html>
