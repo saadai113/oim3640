@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resume Matcher</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #fff;
+      padding: 1.5rem 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+    header p  { font-size: 0.85rem; opacity: 0.65; margin-top: 0.25rem; }
+
+    .container { max-width: 960px; margin: 2rem auto; padding: 0 1.5rem; }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .card h2 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #888;
+      margin-bottom: 0.9rem;
+    }
+
+    /* Upload zone */
+    .upload-zone {
+      border: 2px dashed #cbd5e1;
+      border-radius: 10px;
+      padding: 2.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: #6366f1;
+      background: #f5f3ff;
+    }
+    .upload-zone input { display: none; }
+    .upload-icon { font-size: 2.2rem; margin-bottom: 0.5rem; }
+    .upload-zone p   { color: #64748b; font-size: 0.9rem; }
+    .upload-zone span { color: #6366f1; font-weight: 600; cursor: pointer; }
+
+    .file-list { margin-top: 0.75rem; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .file-chip {
+      display: flex; align-items: center; gap: 0.4rem;
+      background: #f1f5f9; border-radius: 20px;
+      padding: 0.3rem 0.75rem; font-size: 0.82rem; color: #334155;
+    }
+    .file-chip button {
+      background: none; border: none; cursor: pointer;
+      color: #94a3b8; font-size: 1rem; line-height: 1;
+      padding: 0; margin-left: 2px;
+    }
+    .file-chip button:hover { color: #ef4444; }
+
+    /* Textarea */
+    textarea {
+      width: 100%; border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 0.75rem; font-size: 0.92rem; font-family: inherit;
+      resize: vertical; min-height: 160px; color: #1a1a2e;
+      transition: border-color 0.2s;
+    }
+    textarea:focus { outline: none; border-color: #6366f1; }
+
+    /* Submit button */
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 0.7rem 1.8rem; border: none; border-radius: 8px;
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: #6366f1; color: #fff; }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-primary:disabled { background: #a5b4fc; cursor: default; transform: none; }
+
+    /* Error */
+    .error-box {
+      background: #fef2f2; border: 1px solid #fca5a5;
+      color: #b91c1c; border-radius: 8px; padding: 0.8rem 1rem;
+      font-size: 0.9rem; margin-bottom: 1rem;
+    }
+
+    /* Spinner */
+    .spinner-wrap { text-align: center; padding: 3rem 0; color: #6366f1; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 40px; height: 40px; border: 3px solid #e0e7ff;
+      border-top-color: #6366f1; border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+    .spinner-wrap p { color: #64748b; font-size: 0.9rem; }
+
+    /* Results header */
+    .results-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .results-header h2 { font-size: 1.1rem; font-weight: 700; }
+    .results-count {
+      background: #e0e7ff; color: #4338ca;
+      border-radius: 20px; padding: 0.2rem 0.65rem;
+      font-size: 0.78rem; font-weight: 600;
+    }
+
+    /* Candidate card */
+    .candidate-card {
+      border: 1px solid #e2e8f0; border-radius: 10px;
+      margin-bottom: 1rem; overflow: hidden;
+      transition: box-shadow 0.2s;
+    }
+    .candidate-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+
+    .candidate-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 1.25rem; cursor: pointer;
+      background: #fafafa; border-bottom: 1px solid #e2e8f0;
+    }
+    .candidate-header:hover { background: #f1f5f9; }
+
+    .candidate-left { display: flex; align-items: center; gap: 0.75rem; }
+    .rank-badge {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.85rem; flex-shrink: 0;
+    }
+    .rank-1 { background: #fef3c7; color: #92400e; }
+    .rank-2 { background: #f1f5f9; color: #475569; }
+    .rank-3 { background: #fff7ed; color: #9a3412; }
+    .rank-other { background: #f1f5f9; color: #64748b; }
+
+    .candidate-name { font-weight: 600; font-size: 1rem; }
+    .candidate-meta { font-size: 0.8rem; color: #64748b; margin-top: 0.1rem; }
+
+    .score-circle {
+      width: 52px; height: 52px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; flex-shrink: 0;
+      font-weight: 700; font-size: 1.1rem;
+      border: 3px solid;
+    }
+    .score-high   { border-color: #22c55e; color: #16a34a; }
+    .score-medium { border-color: #f59e0b; color: #d97706; }
+    .score-low    { border-color: #ef4444; color: #dc2626; }
+
+    .candidate-body { padding: 1.25rem; }
+
+    /* Sub-scores */
+    .subscores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.25rem; }
+    @media (max-width: 520px) { .subscores { grid-template-columns: 1fr 1fr; } }
+
+    .subscore-item { text-align: center; }
+    .subscore-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 0.3rem; }
+    .subscore-bar-wrap { background: #f1f5f9; border-radius: 4px; height: 6px; width: 100%; }
+    .subscore-bar { height: 6px; border-radius: 4px; background: #6366f1; transition: width 0.6s ease; }
+    .subscore-value { font-size: 0.85rem; font-weight: 600; color: #334155; margin-top: 0.25rem; }
+
+    /* Summary */
+    .summary-text {
+      font-size: 0.9rem; color: #475569; line-height: 1.6;
+      background: #f8fafc; border-radius: 8px; padding: 0.75rem 1rem;
+      margin-bottom: 1.1rem;
+    }
+
+    /* Strengths / Gaps */
+    .sg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 520px) { .sg-grid { grid-template-columns: 1fr; } }
+
+    .sg-box { border-radius: 8px; padding: 0.75rem 1rem; }
+    .sg-box h4 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; margin-bottom: 0.5rem; }
+    .strengths-box { background: #f0fdf4; }
+    .strengths-box h4 { color: #16a34a; }
+    .gaps-box { background: #fff7ed; }
+    .gaps-box h4 { color: #c2410c; }
+    .sg-box ul { list-style: none; }
+    .sg-box li { font-size: 0.83rem; color: #374151; padding: 0.2rem 0; display: flex; gap: 0.4rem; }
+    .sg-box li::before { content: "•"; flex-shrink: 0; }
+    .strengths-box li::before { color: #22c55e; }
+    .gaps-box li::before { color: #f97316; }
+
+    /* Skills */
+    .skills-section { margin-top: 1rem; }
+    .skills-section h4 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 0.5rem; }
+    .skills-wrap { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .skill-tag {
+      background: #ede9fe; color: #5b21b6;
+      border-radius: 20px; padding: 0.2rem 0.65rem;
+      font-size: 0.78rem; font-weight: 500;
+    }
+
+    /* Error candidate */
+    .candidate-error {
+      background: #fef2f2; border: 1px solid #fca5a5;
+      border-radius: 10px; padding: 1rem 1.25rem;
+      font-size: 0.88rem; color: #b91c1c; margin-bottom: 0.75rem;
+    }
+    .chevron { transition: transform 0.2s; font-size: 1.1rem; color: #94a3b8; }
+    .chevron.open { transform: rotate(180deg); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Resume Matcher</h1>
+    <p>Upload resumes and a job description — get ranked candidates with AI-powered analysis.</p>
+  </header>
+  <div id="root"></div>
+
+  <script type="text/babel">{% raw %}
+    const { useState, useRef, useCallback } = React;
+
+    function ScoreCircle({ score }) {
+      const cls = score >= 75 ? "score-high" : score >= 50 ? "score-medium" : "score-low";
+      return (
+        <div className={`score-circle ${cls}`}>{score}</div>
+      );
+    }
+
+    function SubScore({ label, value }) {
+      return (
+        <div className="subscore-item">
+          <div className="subscore-label">{label}</div>
+          <div className="subscore-bar-wrap">
+            <div className="subscore-bar" style={{ width: `${value}%` }} />
+          </div>
+          <div className="subscore-value">{value}</div>
+        </div>
+      );
+    }
+
+    function CandidateCard({ candidate, rank }) {
+      const [open, setOpen] = useState(rank === 1);
+
+      if (candidate.error) {
+        return (
+          <div className="candidate-error">
+            <strong>{candidate.filename}</strong> — {candidate.error}
+          </div>
+        );
+      }
+
+      const m = candidate.match;
+      const rankClass = rank <= 3 ? `rank-${rank}` : "rank-other";
+
+      return (
+        <div className="candidate-card">
+          <div className="candidate-header" onClick={() => setOpen(o => !o)}>
+            <div className="candidate-left">
+              <div className={`rank-badge ${rankClass}`}>#{rank}</div>
+              <div>
+                <div className="candidate-name">{candidate.name}</div>
+                <div className="candidate-meta">
+                  {[candidate.email, candidate.location, candidate.years_of_experience ? `${candidate.years_of_experience} yrs exp` : null]
+                    .filter(Boolean).join(" · ")}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <ScoreCircle score={m.overall_score} />
+              <span className={`chevron ${open ? "open" : ""}`}>▾</span>
+            </div>
+          </div>
+
+          {open && (
+            <div className="candidate-body">
+              <div className="subscores">
+                <SubScore label="Skills" value={m.skills_match} />
+                <SubScore label="Experience" value={m.experience_match} />
+                <SubScore label="Education" value={m.education_match} />
+              </div>
+
+              <div className="summary-text">{m.summary}</div>
+
+              <div className="sg-grid">
+                <div className="sg-box strengths-box">
+                  <h4>Strengths</h4>
+                  <ul>{m.strengths.map((s, i) => <li key={i}>{s}</li>)}</ul>
+                </div>
+                <div className="sg-box gaps-box">
+                  <h4>Gaps</h4>
+                  <ul>{m.gaps.map((g, i) => <li key={i}>{g}</li>)}</ul>
+                </div>
+              </div>
+
+              {candidate.skills && candidate.skills.length > 0 && (
+                <div className="skills-section">
+                  <h4>Skills on Resume</h4>
+                  <div className="skills-wrap">
+                    {candidate.skills.slice(0, 20).map((s, i) => (
+                      <span key={i} className="skill-tag">{s}</span>
+                    ))}
+                    {candidate.skills.length > 20 && (
+                      <span className="skill-tag">+{candidate.skills.length - 20} more</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function App() {
+      const [files, setFiles] = useState([]);
+      const [jobDesc, setJobDesc] = useState("");
+      const [loading, setLoading] = useState(false);
+      const [results, setResults] = useState(null);
+      const [error, setError] = useState("");
+      const [dragOver, setDragOver] = useState(false);
+      const inputRef = useRef();
+
+      const addFiles = useCallback((newFiles) => {
+        setFiles(prev => {
+          const existing = new Set(prev.map(f => f.name));
+          const filtered = Array.from(newFiles).filter(f => !existing.has(f.name));
+          return [...prev, ...filtered];
+        });
+      }, []);
+
+      const removeFile = (name) => setFiles(f => f.filter(x => x.name !== name));
+
+      const handleDrop = (e) => {
+        e.preventDefault();
+        setDragOver(false);
+        addFiles(e.dataTransfer.files);
+      };
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError("");
+        setResults(null);
+
+        if (files.length === 0) { setError("Upload at least one resume."); return; }
+        if (!jobDesc.trim())    { setError("Enter a job description."); return; }
+
+        setLoading(true);
+        try {
+          const form = new FormData();
+          files.forEach(f => form.append("resumes", f));
+          form.append("job_description", jobDesc);
+
+          const resp = await fetch("/api/match", { method: "POST", body: form });
+          const data = await resp.json();
+          if (!resp.ok) { setError(data.error || "Something went wrong."); return; }
+          setResults(data.results);
+        } catch (err) {
+          setError("Network error — is the server running?");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      return (
+        <div className="container">
+
+          <form onSubmit={handleSubmit}>
+            {/* Upload */}
+            <div className="card">
+              <h2>Resumes</h2>
+              <div
+                className={`upload-zone ${dragOver ? "drag-over" : ""}`}
+                onClick={() => inputRef.current.click()}
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+              >
+                <input
+                  type="file"
+                  ref={inputRef}
+                  multiple
+                  accept=".pdf,.docx,.doc,.txt,.rtf,.html"
+                  onChange={e => addFiles(e.target.files)}
+                />
+                <div className="upload-icon">📄</div>
+                <p>Drag & drop files here, or <span>browse</span></p>
+                <p style={{ fontSize: "0.78rem", marginTop: "0.3rem", color: "#94a3b8" }}>
+                  PDF, DOCX, TXT, RTF, HTML · Max 10 MB each
+                </p>
+              </div>
+
+              {files.length > 0 && (
+                <div className="file-list">
+                  {files.map(f => (
+                    <div key={f.name} className="file-chip">
+                      {f.name}
+                      <button type="button" onClick={() => removeFile(f.name)}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Job Description */}
+            <div className="card">
+              <h2>Job Description</h2>
+              <textarea
+                placeholder="Paste the full job description here — role, requirements, nice-to-haves..."
+                value={jobDesc}
+                onChange={e => setJobDesc(e.target.value)}
+              />
+            </div>
+
+            {error && <div className="error-box">{error}</div>}
+
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={loading}
+            >
+              {loading ? "Analyzing…" : `Analyze ${files.length > 0 ? `${files.length} Resume${files.length > 1 ? "s" : ""}` : "Resumes"}`}
+            </button>
+          </form>
+
+          {loading && (
+            <div className="spinner-wrap" style={{ marginTop: "2rem" }}>
+              <div className="spinner" />
+              <p>Parsing resumes and scoring candidates — this may take 15–30 seconds…</p>
+            </div>
+          )}
+
+          {results && !loading && (
+            <div style={{ marginTop: "2rem" }}>
+              <div className="results-header">
+                <h2>Results</h2>
+                <span className="results-count">{results.length} candidate{results.length !== 1 ? "s" : ""}</span>
+              </div>
+              {results.map((c, i) => (
+                <CandidateCard key={i} candidate={c} rank={i + 1} />
+              ))}
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  {% endraw %}</script>
+</body>
+</html>

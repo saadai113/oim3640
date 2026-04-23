@@ -11,13 +11,11 @@ import json
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
-# Requires: pip install openai pydantic pypdf python-docx striprtf beautifulsoup4
-# Optional (for OCR fallback on image-based PDFs): pip install pytesseract pdf2image
-#   plus system packages: tesseract-ocr, poppler-utils
-# Set OPENAI_API_KEY in your environment before running.
+load_dotenv()
 
 client = OpenAI()
 
@@ -188,10 +186,14 @@ def extract_text(path: str) -> str:
 
 # ---------- Main parsing function ----------
 
-def parse_resume(path: str, model: str = "gpt-4o-mini") -> dict:
+def parse_resume(path: str, model: str = "gpt-4o-mini", normalize: bool = False) -> dict:
     """
     Parse a resume file and return structured fields as a dict.
     Returns None if text extraction fails.
+
+    If normalize=True, applies post-processing normalization to skills,
+    job titles, and institution names (requires normalizer.py). Adds
+    ~$0.005 in API cost for the title/institution LLM calls.
     """
     raw_text = extract_text(path)
     if not raw_text.strip():
@@ -221,15 +223,24 @@ def parse_resume(path: str, model: str = "gpt-4o-mini") -> dict:
     )
 
     parsed = completion.choices[0].message.parsed
-    return parsed.model_dump() if parsed else None
+    result = parsed.model_dump() if parsed else None
+
+    if result and normalize:
+        from normalizer import normalize_resume
+        result = normalize_resume(result, model=model)
+
+    return result
 
 
 if __name__ == "__main__":
     # Quick test
     import sys
     if len(sys.argv) < 2:
-        print("Usage: python resume_parser.py <path_to_resume>")
+        print("Usage: python resume_parser.py <path_to_resume> [--normalize]")
         sys.exit(1)
 
-    result = parse_resume(sys.argv[1])
+    do_normalize = "--normalize" in sys.argv
+    file_path = [a for a in sys.argv[1:] if a != "--normalize"][0]
+
+    result = parse_resume(file_path, normalize=do_normalize)
     print(json.dumps(result, indent=2))
