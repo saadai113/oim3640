@@ -8,6 +8,8 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://js.stripe.com/v3/"></script>
+  <script>window.STRIPE_PK = "{{ stripe_publishable_key }}";</script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1373,7 +1375,16 @@
   function StandaloneRewriteModal({ credits, onClose }) {
     const fileRef  = useRef();
     const [file, setFile]         = useState(null);
-    const [jobDesc, setJobDesc]   = useState("");
+    const [jobDesc, setJobDesc]   = useState(() => {
+      // Restore job description saved before Stripe redirect
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has("session_id")) {
+        const saved = sessionStorage.getItem("stripe_job_desc") || "";
+        sessionStorage.removeItem("stripe_job_desc");
+        return saved;
+      }
+      return "";
+    });
     const [dragOver, setDragOver] = useState(false);
     const [loading, setLoading]   = useState(false);
     const [rewritten, setRewritten] = useState(null);
@@ -1392,6 +1403,35 @@
       if (!jobDesc.trim()) { setErr("Please paste a job description."); return; }
       setErr(""); setLoading(true); setRewritten(null);
 
+      // If returning from a successful Stripe payment, skip to rewrite
+      const urlParams = new URLSearchParams(window.location.search);
+      const alreadyPaid = urlParams.has("session_id");
+
+      if (!alreadyPaid) {
+        // Store job description so we can restore it after Stripe redirect
+        try {
+          sessionStorage.setItem("stripe_job_desc", jobDesc);
+          sessionStorage.setItem("stripe_credits", String(credits));
+        } catch (_) {}
+
+        try {
+          const resp = await fetch("/api/create-checkout-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ plan_type: "rewriter", credits }),
+          });
+          const data = await resp.json();
+          if (!resp.ok) { setErr(data.error || "Payment setup failed."); setLoading(false); return; }
+          const stripe = Stripe(window.STRIPE_PK);
+          await stripe.redirectToCheckout({ sessionId: data.session_id });
+        } catch {
+          setErr("Could not start payment. Check your Stripe keys.");
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Post-payment: run the rewrite
       try {
         const form = new FormData();
         form.append("resume", file);
@@ -1401,6 +1441,9 @@
         const data = await resp.json();
         if (!resp.ok) { setErr(data.error || "Rewrite failed."); return; }
         setRewritten(data.rewritten);
+
+        // Clear Stripe params from the URL so refresh doesn't re-trigger
+        window.history.replaceState({}, "", "/");
       } catch {
         setErr("Network error — is the server running?");
       } finally {
@@ -1484,9 +1527,13 @@
 
               <div className="modal-actions">
                 <button type="submit" className="btn-rewrite" style={{ fontSize: "0.95rem", padding: "0.7rem 1.6rem" }} disabled={loading}>
-                  {loading ? "Rewriting…" : "✨ Rewrite My Resume"}
+                  {loading
+                    ? (new URLSearchParams(window.location.search).has("session_id") ? "Rewriting…" : "Redirecting to payment…")
+                    : (new URLSearchParams(window.location.search).has("session_id") ? "✨ Rewrite My Resume" : `💳 Pay & Rewrite — $${credits === 1 ? "10" : "20"}`)}
                 </button>
-                {loading && <span style={{ fontSize: "0.8rem", color: "var(--gray400)", alignSelf: "center" }}>This takes about 15 seconds…</span>}
+                {loading && <span style={{ fontSize: "0.8rem", color: "var(--gray400)", alignSelf: "center" }}>
+                  {new URLSearchParams(window.location.search).has("session_id") ? "This takes about 15 seconds…" : "Opening Stripe checkout…"}
+                </span>}
               </div>
             </form>
           ) : (
@@ -1565,6 +1612,14 @@
     useEffect(() => {
       const handler = (e) => setStandaloneRewrite({ credits: e.detail.credits });
       window.addEventListener("openStandaloneRewrite", handler);
+
+      // Auto-open modal after returning from Stripe payment
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has("session_id")) {
+        const restoredCredits = parseInt(sessionStorage.getItem("stripe_credits") || "1", 10);
+        setStandaloneRewrite({ credits: restoredCredits });
+      }
+
       return () => window.removeEventListener("openStandaloneRewrite", handler);
     }, []);
 

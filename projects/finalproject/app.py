@@ -3,11 +3,15 @@ import tempfile
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
+import stripe
 
 load_dotenv()
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB limit
+
+# Initialize Stripe
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 ALLOWED_EXTENSIONS = {"pdf", "docx", "doc", "txt", "rtf", "html", "htm"}
 
@@ -18,7 +22,8 @@ def allowed_file(filename):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    stripe_key = os.getenv("STRIPE_PUBLISHABLE_KEY", "pk_test_YOUR_PUBLISHABLE_KEY_HERE")
+    return render_template("index.html", stripe_publishable_key=stripe_key)
 
 
 @app.route("/api/match", methods=["POST"])
@@ -143,6 +148,62 @@ def rewrite_file():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/create-checkout-session", methods=["POST"])
+def create_checkout_session():
+    """Create a Stripe checkout session for scanning or rewriting."""
+    data = request.get_json(force=True)
+    plan_type = data.get("plan_type")  # "scanner" or "rewriter"
+    credits = data.get("credits", 1)
+    
+    # Define pricing tiers
+    pricing = {
+        "scanner": {
+            1: (1, 100),      # 1 credit for $1
+            10: (10, 700),    # 10 credits for $7  
+            15: (15, 1000),   # 15 credits for $10
+        },
+        "rewriter": {
+            1: (1, 1000),     # 1 rewrite for $10
+            3: (3, 2000),     # 3 rewrites for $20
+        },
+    }
+    
+    if plan_type not in pricing or credits not in pricing[plan_type]:
+        return jsonify({"error": "Invalid plan."}), 400
+    
+    credit_count, amount_cents = pricing[plan_type][credits]
+    
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            line_items=[
+                {
+                    "price_data": {
+                        "currency": "usd",
+                        "product_data": {
+                            "name": f"{plan_type.capitalize()} - {credit_count} credits",
+                        },
+                        "unit_amount": amount_cents,
+                    },
+                    "quantity": 1,
+                }
+            ],
+            mode="payment",
+            success_url=f"{request.host_url.rstrip('/')}/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{request.host_url.rstrip('/')}/",
+        )
+        return jsonify({"session_id": session.id, "sessionId": session.id})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/success")
+def success():
+    """Success page after payment."""
+    session_id = request.args.get("session_id")
+    return render_template("index.html")
 
 
 if __name__ == "__main__":
