@@ -3,7 +3,7 @@ from crew import Oim3640Crew
 
 def run():
     inputs = {
-        'code': open('../code/hello.py').read(),
+        'code': open('../../../code/hello.py').read(),
         'student_name': 'Student',
         'filename': 'hello.py',
     }
