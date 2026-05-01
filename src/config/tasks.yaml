@@ -1,0 +1,32 @@
+analyze_code_task:
+  description: >
+    Analyze the following Python code and identify:
+    1. Programming concepts used (functions, classes, loops, comprehensions, error handling, etc.)
+    2. Libraries and modules imported and their purpose
+    3. Code quality observations (structure, naming, documentation)
+    4. Potential areas for improvement
+
+    Code to analyze:
+    {code}
+  expected_output: >
+    A structured analysis with sections for: concepts used, libraries imported,
+    code quality observations, and suggested improvements.
+  agent: code_analyzer
+
+write_learning_log_task:
+  description: >
+    Based on the code analysis, write a structured learning log entry in markdown format.
+    Include:
+    - A brief session summary
+    - Key concepts learned or practiced
+    - Challenges encountered or interesting patterns found
+    - Next steps for improvement
+
+    Student name: {student_name}
+    Code filename: {filename}
+  expected_output: >
+    A well-structured markdown learning log entry with date, summary, concepts,
+    challenges, and next steps sections.
+  agent: learning_log_writer
+  context:
+    - analyze_code_task
