@@ -16,3 +16,12 @@
  - Both these deals had been carefully chosen from the same industry and they had similar valuations as well
  - Learnt how to get api from polymarket, nvidia
  - 
+
+## Mini-Project 3
+ - Built a Flask app that finds the nearest MBTA stop for a place or address in Greater Boston
+ - Learned how to connect two APIs together: Mapbox for geocoding and MBTA for nearby stops
+ - Used environment variables for API keys so secrets stay out of source control
+ - Learned how the MBTA stop search works with latitude, longitude, radius, and sort by distance
+ - Added a map view that shows both the origin and the nearest stop
+ - Learned the difference between straight-line distance and actual walking distance
+ - Biggest challenge was dealing with API failures, missing keys, and ambiguous locations
