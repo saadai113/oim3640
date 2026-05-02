@@ -11,3 +11,6 @@ Link to Project: C:\Users\sabdullah2\Documents\GitHub\oim3640\projects\miniproje
 
 Link to Mini-project3:
 C:\Users\sabdullah2\Documents\GitHub\oim3640\projects\miniproject_3\proposal1.md
+
+Link to all projects:
+https://github.com/saadai113/oim3640/tree/main/projects
