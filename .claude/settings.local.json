@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install *)",
+      "Bash(git remote *)",
+      "Bash(git push *)"
+    ]
+  }
+}
